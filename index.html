@@ -1,0 +1,54 @@
+<!DOCTYPE html><html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Sleep Time Tool</title>
+  <style>
+    body { font-family: sans-serif; background-color: #e0f7ff; padding: 20px; }
+    label, input, button { display: block; margin: 10px 0; }
+    #output { margin-top: 20px; white-space: pre-line; }
+  </style>
+</head>
+<body>
+  <input type="time" id="startTime" placeholder="Start Time">
+  <input type="number" id="sleepHours" placeholder="Sleep Hours" step="0.25">
+  <input type="time" id="targetMidpoint" placeholder="Target Midpoint">
+  <button onclick="calculate()">Suggest Times</button>
+  <div id="output"></div>  <script>
+    function timeToMinutes(timeStr) {
+      const [h, m] = timeStr.split(":").map(Number);
+      return h * 60 + m;
+    }
+
+    function minutesToTime(mins) {
+      mins = (mins + 1440) % 1440;
+      const h = Math.floor(mins / 60).toString().padStart(2, "0");
+      const m = Math.floor(mins % 60).toString().padStart(2, "0");
+      return `${h}:${m}`;
+    }
+
+    function calculate() {
+      const start = timeToMinutes(document.getElementById("startTime").value);
+      const duration = parseFloat(document.getElementById("sleepHours").value) * 60;
+      const mst = timeToMinutes(document.getElementById("targetMidpoint").value);
+
+      let best = null;
+
+      for (let i = start; i <= start + 240; i++) {
+        const end = i + duration;
+        const mid = i + duration / 2;
+        const delta = Math.abs(((mid - mst + 720) % 1440) - 720);
+        if (delta <= 30) {
+          best = { start: i, end, mid };
+          break;
+        }
+      }
+
+      const out = document.getElementById("output");
+      if (best) {
+        out.textContent = `${minutesToTime(best.start)} → ${minutesToTime(best.end)}`;
+      } else {
+        out.textContent = "No valid suggestion";
+      }
+    }
+  </script></body>
+</html>
