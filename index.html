@@ -40,20 +40,20 @@
     .sleep-header {
       display: flex;
       justify-content: center;
-      gap: 1rem;
+      gap: 2.5rem;
       margin-bottom: 0.3rem;
       font-weight: bold;
-    }
-    .time-label {
-      width: 4rem;
-      text-align: center;
     }
     .time-pair {
       display: flex;
       justify-content: center;
       align-items: center;
-      gap: 0.5rem;
+      gap: 1rem;
       margin-bottom: 0.3rem;
+    }
+    .time-label {
+      width: 4rem;
+      text-align: center;
     }
     .time-separator {
       font-size: 1.2rem;
@@ -139,8 +139,6 @@
         <input type='time' id='${day}_w1' oninput="evaluateAll();">
       </div>
       <div class='time-pair'>
-        <span class='time-label'></span>
-        <span class='time-label'></span>
         <span id='${day}_total' class='time-label'>--h--m</span>
         <span id='${day}_mst' class='time-label'>--:--</span>
       </div>
