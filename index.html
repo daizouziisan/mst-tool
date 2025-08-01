@@ -26,6 +26,23 @@
       margin-bottom: 0.5rem;
       font-size: 1.1rem;
     }
+    .input-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      justify-content: center;
+      margin-bottom: 1rem;
+    }
+    label {
+      display: block;
+      font-size: 0.9rem;
+    }
+    input[type="time"], input[type="number"] {
+      width: 120px;
+      padding: 0.3rem;
+      border-radius: 6px;
+      border: 1px solid #aaa;
+    }
     .day-container {
       display: flex;
       flex-wrap: wrap;
@@ -39,13 +56,6 @@
       padding: 1rem;
       width: 140px;
       box-shadow: 0 0 8px rgba(0,0,0,0.1);
-    }
-    input[type="time"] {
-      width: 100%;
-      margin-bottom: 0.3rem;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      padding: 0.2rem;
     }
     .results {
       margin-top: 2rem;
@@ -62,7 +72,14 @@
   </style>
 </head>
 <body>
-  <h1>睡眠リズム評価ツール</h1>  <div class="section-title">睡眠スケジュール入力</div>
+  <h1>睡眠リズム評価ツール</h1>  <div class="section-title">MSTに基づく就寝・起床提案</div>
+  <div class="input-group">
+    <div><label>就寝予定時刻</label><input type="time" id="plannedStart"></div>
+    <div><label>希望睡眠時間（分）</label><input type="number" id="desiredDuration" min="0" max="1440"></div>
+    <div><label>希望MST（中央時刻）</label><input type="time" id="targetMST"></div>
+  </div>
+  <button onclick="suggestSleepTime()">提案する</button>
+  <div id="suggestionResult" style="margin: 1rem;"></div>  <hr style="width: 80%; margin: 2rem 0;">  <div class="section-title">週ごとの睡眠スケジュール入力</div>
   <div class="day-container" id="dayContainer"></div>
   <button onclick="evaluate()">評価する</button>  <div class="results">
     <h2>評価</h2>
@@ -77,6 +94,53 @@
 <canvas id="sleepChart" height="300"></canvas>
 
   </div>  <script>
+    function timeToMin(t) {
+      if (!t) return null;
+      const [h, m] = t.split(":").map(Number);
+      return h * 60 + m;
+    }
+
+    function minToTime(min) {
+      min = (min + 1440) % 1440;
+      const h = Math.floor(min / 60).toString().padStart(2, "0");
+      const m = Math.floor(min % 60).toString().padStart(2, "0");
+      return `${h}:${m}`;
+    }
+
+    function suggestSleepTime() {
+      const start = timeToMin(document.getElementById("plannedStart").value);
+      const duration = parseInt(document.getElementById("desiredDuration").value);
+      const targetMST = timeToMin(document.getElementById("targetMST").value);
+
+      if (start == null || isNaN(duration) || targetMST == null) {
+        document.getElementById("suggestionResult").innerText = "すべての項目を入力してください。";
+        return;
+      }
+
+      let bestStart = null;
+      let bestEnd = null;
+      let maxDuration = 0;
+
+      for (let d = duration; d <= 600; d++) {
+        const s = start;
+        const e = (s + d) % 1440;
+        const mst = (s + d / 2) % 1440;
+        const diff = Math.min(Math.abs(mst - targetMST), 1440 - Math.abs(mst - targetMST));
+        if (diff <= 30) {
+          bestStart = s;
+          bestEnd = e;
+          maxDuration = d;
+        }
+      }
+
+      if (bestStart !== null) {
+        const mst = (bestStart + maxDuration / 2) % 1440;
+        document.getElementById("suggestionResult").innerText = `提案: ${minToTime(bestStart)} ～ ${minToTime(bestEnd)}（MST: ${minToTime(mst)}）`;
+      } else {
+        document.getElementById("suggestionResult").innerText = "条件に合う時間帯が見つかりませんでした。";
+      }
+    }
+
     const days = ["月", "火", "水", "木", "金", "土", "日"];
     const container = document.getElementById("dayContainer");
 
@@ -92,19 +156,6 @@
       `;
       container.appendChild(box);
     });
-
-    function timeToMin(t) {
-      if (!t) return null;
-      const [h, m] = t.split(":").map(Number);
-      return h * 60 + m;
-    }
-
-    function minToTime(min) {
-      min = (min + 1440) % 1440;
-      const h = Math.floor(min / 60).toString().padStart(2, "0");
-      const m = Math.floor(min % 60).toString().padStart(2, "0");
-      return `${h}:${m}`;
-    }
 
     function evaluate() {
       const dailyTotals = [], dailyMSTs = [], labels = [];
