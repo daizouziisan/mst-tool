@@ -1,5 +1,4 @@
-<!DOCTYPE html><html lang="ja">
-<head>
+<!DOCTYPE html><html lang="ja"><head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>睡眠記録</title>
@@ -27,11 +26,27 @@
       margin-bottom: 0.5rem;
       color: #007acc;
     }
+    .sleep-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 0.3rem;
+    }
+    .sleep-label {
+      width: 3rem;
+      text-align: right;
+      margin-right: 0.5rem;
+    }
+    .sleep-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 0.3rem;
+      font-weight: bold;
+    }
     input[type="time"] {
       padding: 0.3rem;
       border-radius: 6px;
       border: 1px solid #aaa;
-      margin-bottom: 0.3rem;
+      margin: 0 0.5rem;
     }
     .result-line {
       margin: 0.3rem 0;
@@ -69,98 +84,12 @@
 </div><script>
   const weekdays = ["mon","tue","wed","thu","fri","sat","sun"];
   const labels = ["月","火","水","木","金","土","日"];
-  const container = document.getElementById("daysContainer");
+  const container = document.getElementById("daysContainer");weekdays.forEach((day, i) => { const block = document.createElement("div"); block.className = "day-block"; block.innerHTML = <div class='day-title'>${labels[i]}曜日</div> <div class='sleep-header'>　　　就寝　　〜　起床</div> <div class='sleep-row'> <div class='sleep-label'>1回目</div> <input type='time' id='${day}_s1' oninput="focusNext(this, '${day}_w1')">〜<input type='time' id='${day}_w1'> </div> <div class='sleep-row'> <div class='sleep-label'>2回目</div> <input type='time' id='${day}_s2' oninput="focusNext(this, '${day}_w2')">〜<input type='time' id='${day}_w2'> </div> <div id='eval_${day}'></div>; container.appendChild(block); });
 
-  weekdays.forEach((day, i) => {
-    const block = document.createElement("div");
-    block.className = "day-block";
-    block.innerHTML = `<div class='day-title'>${labels[i]}曜日</div>
-      就寝1:<input type='time' id='${day}_s1'><br>
-      起床1:<input type='time' id='${day}_w1'><br>
-      就寝2:<input type='time' id='${day}_s2'><br>
-      起床2:<input type='time' id='${day}_w2'><br>
-      <div id='eval_${day}'></div>`;
-    container.appendChild(block);
-  });
+const clearBtn = document.createElement("button"); clearBtn.textContent = "消去"; clearBtn.onclick = () => { weekdays.forEach(day => { ["s1","w1","s2","w2"].forEach(t => { document.getElementById(${day}_${t}).value = ""; }); document.getElementById(eval_${day}).innerHTML = ""; }); document.getElementById("weeklyStats").innerText = ""; Chart.getChart("sleepChart")?.destroy(); Chart.getChart("mstChart")?.destroy(); }; container.appendChild(clearBtn);
 
-  const clearBtn = document.createElement("button");
-  clearBtn.textContent = "消去";
-  clearBtn.onclick = () => {
-    weekdays.forEach(day => {
-      ["s1","w1","s2","w2"].forEach(t => {
-        document.getElementById(`${day}_${t}`).value = "";
-      });
-      document.getElementById(`eval_${day}`).innerHTML = "";
-    });
-    document.getElementById("weeklyStats").innerText = "";
-    Chart.getChart("sleepChart")?.destroy();
-    Chart.getChart("mstChart")?.destroy();
-  };
-  container.appendChild(clearBtn);
+function focusNext(current, nextId) { if (current.value) { document.getElementById(nextId).focus(); } }
 
-  function timeToMin(t) {
-    if (!t) return null;
-    const [h, m] = t.split(":".padStart);
-    return h * 60 + m;
-  }
-  function minToTime(min) {
-    min = (min + 1440) % 1440;
-    const h = Math.floor(min / 60).toString().padStart(2, "0");
-    const m = Math.floor(min % 60).toString().padStart(2, "0");
-    return `${h}:${m}`;
-  }
-  function suggestSleepTime() {
-    const start = timeToMin(document.getElementById("plannedStart").value);
-    const duration = parseInt(document.getElementById("desiredDuration").value);
-    const targetMST = timeToMin(document.getElementById("targetMST").value);
-    if (start == null || isNaN(duration) || targetMST == null) {
-      document.getElementById("suggestionResult").innerText = "入力が不完全です。";
-      return;
-    }
-    let s = start;
-    let e = (s + duration) % 1440;
-    let mst = (s + duration / 2) % 1440;
-    const diff = Math.abs(mst - targetMST);
-    if (diff <= 30) {
-      document.getElementById("suggestionResult").innerText = `${minToTime(s)}〜${minToTime(e)} (MST:${minToTime(mst)})`;
-    } else {
-      document.getElementById("suggestionResult").innerText = "適した時間帯が見つかりません。";
-    }
-  }
-  function evaluateAll() {
-    let totals = [], msts = [];
-    weekdays.forEach(day => {
-      const s1 = timeToMin(document.getElementById(`${day}_s1`).value);
-      const w1 = timeToMin(document.getElementById(`${day}_w1`).value);
-      const s2 = timeToMin(document.getElementById(`${day}_s2`).value);
-      const w2 = timeToMin(document.getElementById(`${day}_w2`).value);
-      const d1 = s1 != null && w1 != null ? (w1 - s1 + 1440) % 1440 : 0;
-      const d2 = s2 != null && w2 != null ? (w2 - s2 + 1440) % 1440 : 0;
-      const score1 = Math.round((d1 / 510) * 100);
-      const fullScore2 = 100 - score1;
-      const threshold = 510 * score1 / 100;
-      const score2 = d2 >= threshold ? fullScore2 : Math.round((d2 / threshold) * fullScore2);
-      const total = d1 + d2;
-      const mst = d1 >= d2 ? (s1 + d1 / 2) % 1440 : (s2 + d2 / 2) % 1440;
-      totals.push(total);
-      msts.push(mst);
-      document.getElementById(`eval_${day}`).innerHTML =
-        `1回目: ${score1}点<br>2回目: ${score2}点<br>合計: ${(Math.floor(total/60))}時間${total%60}分<br>MST: ${minToTime(mst)}`;
-    });
-    const maxT = Math.max(...totals), minT = Math.min(...totals);
-    const maxM = Math.max(...msts), minM = Math.min(...msts);
-    const diffT = maxT - minT, diffM = maxM - minM;
-    document.getElementById("weeklyStats").innerText = `週の睡眠差:${(diffT/60).toFixed(1)}h MST差:${(diffM/60).toFixed(1)}h`;
-    new Chart(document.getElementById("sleepChart"), {
-      type: 'bar',
-      data: {labels: weekdays, datasets: [{label:'睡眠時間',data:totals,backgroundColor:'#99ddff'}]},
-      options: {scales:{y:{ticks:{callback:v=>`${(v/60).toFixed(1)}h`}}}}
-    });
-    new Chart(document.getElementById("mstChart"), {
-      type: 'line',
-      data: {labels: weekdays, datasets: [{label:'MST',data:msts,backgroundColor:'#66ccff'}]},
-      options: {scales:{y:{min:0,max:1440,ticks:{callback:v=>minToTime(v)}}}}
-    });
-  }
-</script></body>
+function timeToMin(t) { if (!t) return null; const [h, m] = t.split(":".padStart); return h * 60 + m; } function minToTime(min) { min = (min + 1440) % 1440; const h = Math.floor(min / 60).toString().padStart(2, "0"); const m = Math.floor(min % 60).toString().padStart(2, "0"); return ${h}:${m}; } function suggestSleepTime() { const start = timeToMin(document.getElementById("plannedStart").value); const duration = parseInt(document.getElementById("desiredDuration").value); const targetMST = timeToMin(document.getElementById("targetMST").value); if (start == null || isNaN(duration) || targetMST == null) { document.getElementById("suggestionResult").innerText = "入力が不完全です。"; return; } let s = start; let e = (s + duration) % 1440; let mst = (s + duration / 2) % 1440; const diff = Math.abs(mst - targetMST); if (diff <= 30) { document.getElementById("suggestionResult").innerText = ${minToTime(s)}〜${minToTime(e)} (MST:${minToTime(mst)}); } else { document.getElementById("suggestionResult").innerText = "適した時間帯が見つかりません。"; } } function evaluateAll() { let totals = [], msts = []; weekdays.forEach(day => { const s1 = timeToMin(document.getElementById(${day}_s1).value); const w1 = timeToMin(document.getElementById(${day}_w1).value); const s2 = timeToMin(document.getElementById(${day}_s2).value); const w2 = timeToMin(document.getElementById(${day}_w2).value); const d1 = s1 != null && w1 != null ? (w1 - s1 + 1440) % 1440 : 0; const d2 = s2 != null && w2 != null ? (w2 - s2 + 1440) % 1440 : 0; const score1 = Math.round((d1 / 510) * 100); const fullScore2 = 100 - score1; const threshold = 510 * score1 / 100; const score2 = d2 >= threshold ? fullScore2 : Math.round((d2 / threshold) * fullScore2); const total = d1 + d2; const mst = d1 >= d2 ? (s1 + d1 / 2) % 1440 : (s2 + d2 / 2) % 1440; totals.push(total); msts.push(mst); document.getElementById(eval_${day}).innerHTML = 1回目: ${score1}点<br>2回目: ${score2}点<br>合計: ${(Math.floor(total/60))}時間${total%60}分<br>MST: ${minToTime(mst)}; }); const maxT = Math.max(...totals), minT = Math.min(...totals); const maxM = Math.max(...msts), minM = Math.min(...msts); const diffT = maxT - minT, diffM = maxM - minM; document.getElementById("weeklyStats").innerText = 週の睡眠差:${(diffT/60).toFixed(1)}h MST差:${(diffM/60).toFixed(1)}h; new Chart(document.getElementById("sleepChart"), { type: 'bar', data: {labels: weekdays, datasets: [{label:'睡眠時間',data:totals,backgroundColor:'#99ddff'}]}, options: {scales:{y:{ticks:{callback:v=>${(v/60).toFixed(1)}h}}}} }); new Chart(document.getElementById("mstChart"), { type: 'line', data: {labels: weekdays, datasets: [{label:'MST',data:msts,backgroundColor:'#66ccff'}]}, options: {scales:{y:{min:0,max:1440,ticks:{callback:v=>minToTime(v)}}}} }); } </script></body>
+
 </html>
