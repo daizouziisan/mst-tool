@@ -2,7 +2,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>睡眠記録ブック</title>
+  <title>睡眠記録</title>
   <link rel="stylesheet" href="https://unpkg.com/swiper/swiper-bundle.min.css" />
   <script src="https://unpkg.com/swiper/swiper-bundle.min.js"></script>
   <style>
@@ -11,10 +11,6 @@
       font-family: 'Noto Sans JP', sans-serif;
       background: #dff6fd;
       color: #333;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
       height: 100vh;
       overflow: hidden;
     }
@@ -30,6 +26,7 @@
       justify-content: center;
       font-size: 2rem;
       text-align: center;
+      margin: auto;
     }
     .swiper-container {
       width: 100vw;
@@ -42,6 +39,7 @@
       justify-content: center;
       background: #dff6fd;
       font-size: 1rem;
+      padding: 1rem;
     }
     .day-title {
       font-size: 1.5rem;
@@ -61,7 +59,12 @@
       border-radius: 8px;
       font-size: 1rem;
       cursor: pointer;
-      margin-top: 1rem;
+      margin: 0.5rem;
+    }
+    .star {
+      width: 80px;
+      height: auto;
+      margin: 0.5rem;
     }
   </style>
 </head>
@@ -73,25 +76,24 @@
         <div>睡眠記録</div>
       </div>
     </div>
-    <div class="swiper-slide">
-      <div class="day-title">月曜日</div>
-      就寝1:<input type="time" id="mon_s1"><br>
-      起床1:<input type="time" id="mon_w1"><br>
-      就寝2:<input type="time" id="mon_s2"><br>
-      起床2:<input type="time" id="mon_w2"><br>
-      <button onclick="calculate('mon')">評価</button>
-      <div id="mon_result"></div>
-    </div>
-    <div class="swiper-slide">
-      <div class="day-title">火曜日</div>
-      就寝1:<input type="time" id="tue_s1"><br>
-      起床1:<input type="time" id="tue_w1"><br>
-      就寝2:<input type="time" id="tue_s2"><br>
-      起床2:<input type="time" id="tue_w2"><br>
-      <button onclick="calculate('tue')">評価</button>
-      <div id="tue_result"></div>
-    </div>
-    <!-- 同様に水〜日も追加可 -->
+    <script>
+      const days = ["月", "火", "水", "木", "金", "土", "日"];
+      for (let i = 0; i < days.length; i++) {
+        document.write(`
+          <div class='swiper-slide'>
+            <div class='day-title'>${days[i]}曜日</div>
+            就寝1:<input type="time" id="${days[i]}_s1"><br>
+            起床1:<input type="time" id="${days[i]}_w1"><br>
+            就寝2:<input type="time" id="${days[i]}_s2"><br>
+            起床2:<input type="time" id="${days[i]}_w2"><br>
+            <button onclick="calculate('${days[i]}')">評価</button>
+            <button onclick="reset('${days[i]}')">消去</button>
+            <div id="${days[i]}_result"></div>
+            <img id="${days[i]}_star" class="star" src="" alt="">
+          </div>
+        `);
+      }
+    </script>
   </div>
 </div><script>
   var swiper = new Swiper('.swiper-container', {
@@ -131,6 +133,23 @@
 
     document.getElementById(`${day}_result`).innerText =
       `1回目: ${score1}点\n2回目: ${score2}点\n合計睡眠: ${minToTime(total)}\nMST: ${minToTime(mst)}`;
+
+    let starPath = "";
+    if (total >= 510 * 2 - 120) {
+      starPath = "3star.png";
+    } else if (total >= 510 * 2 - 180) {
+      starPath = "2star.png";
+    } else {
+      starPath = "1star.png";
+    }
+    document.getElementById(`${day}_star`).src = starPath;
+  }
+  function reset(day) {
+    ["s1", "w1", "s2", "w2"].forEach(s => {
+      document.getElementById(`${day}_${s}`).value = "";
+    });
+    document.getElementById(`${day}_result`).innerText = "";
+    document.getElementById(`${day}_star`).src = "";
   }
 </script></body>
 </html>
