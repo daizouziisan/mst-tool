@@ -98,11 +98,10 @@
   <h2>睡眠スケジュール</h2>
   <div class="header-form">
     <label>就寝予定時刻:<input type="time" id="plannedStart"></label>
-    <label>希望睡眠時間(分):<input type="number" id="desiredDuration" min="0" max="1440"></label>
-    <label>MST:<input type="time" id="targetMST"></label>
-    <button onclick="suggestSleepTime()">提案</button>
-    <div id="suggestionResult"></div>
-  </div>
+    <label>希望睡眠時間(分):<input type="number" id="desiredDuration" min="0" max="1440" step="1"><br>
+  MST:<input type="time" id="targetMST"><br>
+  <button onclick="suggestSleepTime()">提案</button>
+  <div id="suggestionResult"></div>
 </div>
 <div id="daysContainer"></div>
 <div class="footer">
@@ -146,7 +145,7 @@
   });
 
   const clearBtn = document.createElement("button");
-  clearBtn.textContent = "消去";
+  clearBtn.textContent = "クリア";
   clearBtn.onclick = () => {
     weekdays.forEach(day => {
       ["s1","w1","s2","w2"].forEach(t => {
