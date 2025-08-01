@@ -1,0 +1,163 @@
+<!DOCTYPE html><html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>睡眠記録</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Noto Sans JP', sans-serif;
+      background: #dff6fd;
+      color: #000;
+    }
+    .header, .footer {
+      padding: 1rem;
+      text-align: center;
+    }
+    .header-form {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+    .day-block {
+      margin: 1rem auto;
+      background: #f0fbff;
+      padding: 1rem;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      max-width: 400px;
+      text-align: center;
+    }
+    .day-title {
+      font-size: 1.2rem;
+      margin-bottom: 0.5rem;
+      color: #007acc;
+    }
+    .sleep-row {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+    .sleep-label {
+      width: 3rem;
+      text-align: right;
+      margin-right: 0.5rem;
+    }
+    .sleep-header {
+      display: flex;
+      justify-content: center;
+      gap: 1.5rem;
+      margin-bottom: 0.3rem;
+      font-weight: bold;
+    }
+    .time-label {
+      width: 4rem;
+      text-align: center;
+    }
+    .time-pair {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.3rem;
+    }
+    .time-separator {
+      font-size: 1.2rem;
+    }
+    input[type="time"] {
+      padding: 0.3rem;
+      border-radius: 6px;
+      border: 1px solid #aaa;
+    }
+    .result-line {
+      margin: 0.3rem 0;
+    }
+    button {
+      background: #66ccff;
+      border: none;
+      padding: 0.4rem 0.8rem;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      margin: 0.5rem auto;
+      display: block;
+    }
+    canvas {
+      max-width: 95%;
+      margin: 1rem auto;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+<div class="header">
+  <h2>睡眠スケジュール</h2>
+  <div class="header-form">
+    <label>就寝予定時刻:<input type="time" id="plannedStart"></label>
+    <label>希望睡眠時間(分):<input type="number" id="desiredDuration" min="0" max="1440" step="1"><br>
+  MST:<input type="time" id="targetMST"><br>
+  <button onclick="suggestSleepTime()">提案</button>
+  <div id="suggestionResult"></div>
+</div>
+<div id="daysContainer"></div>
+<div class="footer">
+  <h3>週の統計とグラフ</h3>
+  <button onclick="evaluateAll()">週の評価</button>
+  <div id="weeklyStats"></div>
+  <canvas id="sleepChart" height="200"></canvas>
+  <canvas id="mstChart" height="200"></canvas>
+</div>
+<script>
+  const weekdays = ["mon","tue","wed","thu","fri","sat","sun"];
+  const labels = ["月","火","水","木","金","土","日"];
+  const container = document.getElementById("daysContainer");
+
+  function focusNext(current, nextId) {
+    if (current.value) {
+      document.getElementById(nextId).focus();
+    }
+  }
+
+  weekdays.forEach((day, i) => {
+    const block = document.createElement("div");
+    block.className = "day-block";
+    block.innerHTML = `<div class='day-title'>${labels[i]}曜日</div>
+      <div class='sleep-header'>
+        <div class='time-label'>就寝</div>
+        <div class='time-label'>起床</div>
+      </div>
+      <div class='time-pair'>
+        <input type='time' id='${day}_s1' oninput="focusNext(this, '${day}_w1')">
+        <span class='time-separator'>〜</span>
+        <input type='time' id='${day}_w1'>
+      </div>
+      <div class='time-pair'>
+        <input type='time' id='${day}_s2' oninput="focusNext(this, '${day}_w2')">
+        <span class='time-separator'>〜</span>
+        <input type='time' id='${day}_w2'>
+      </div>
+      <div id='eval_${day}'></div>`;
+    container.appendChild(block);
+  });
+
+  const clearBtn = document.createElement("button");
+  clearBtn.textContent = "クリア";
+  clearBtn.onclick = () => {
+    weekdays.forEach(day => {
+      ["s1","w1","s2","w2"].forEach(t => {
+        document.getElementById(`${day}_${t}`).value = "";
+      });
+      document.getElementById(`eval_${day}`).innerHTML = "";
+    });
+    document.getElementById("weeklyStats").innerText = "";
+    Chart.getChart("sleepChart")?.destroy();
+    Chart.getChart("mstChart")?.destroy();
+  };
+  container.appendChild(clearBtn);
+</script>
+</body>
+</html>
