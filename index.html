@@ -15,6 +15,13 @@
       padding: 1rem;
       text-align: center;
     }
+    .header-form {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
     .day-block {
       margin: 1rem auto;
       background: #f0fbff;
@@ -54,8 +61,12 @@
     .time-pair {
       display: flex;
       justify-content: center;
-      gap: 1.5rem;
+      align-items: center;
+      gap: 0.5rem;
       margin-bottom: 0.3rem;
+    }
+    .time-separator {
+      font-size: 1.2rem;
     }
     input[type="time"] {
       padding: 0.3rem;
@@ -85,11 +96,13 @@
 <body>
 <div class="header">
   <h2>睡眠スケジュール</h2>
-  就寝予定時刻:<input type="time" id="plannedStart">
-  希望睡眠時間(分):<input type="number" id="desiredDuration" min="0" max="1440">
-  MST:<input type="time" id="targetMST">
-  <button onclick="suggestSleepTime()">提案</button>
-  <div id="suggestionResult"></div>
+  <div class="header-form">
+    <label>就寝予定時刻:<input type="time" id="plannedStart"></label>
+    <label>希望睡眠時間(分):<input type="number" id="desiredDuration" min="0" max="1440"></label>
+    <label>MST:<input type="time" id="targetMST"></label>
+    <button onclick="suggestSleepTime()">提案</button>
+    <div id="suggestionResult"></div>
+  </div>
 </div>
 <div id="daysContainer"></div>
 <div class="footer">
@@ -120,10 +133,12 @@
       </div>
       <div class='time-pair'>
         <input type='time' id='${day}_s1' oninput="focusNext(this, '${day}_w1')">
+        <span class='time-separator'>〜</span>
         <input type='time' id='${day}_w1'>
       </div>
       <div class='time-pair'>
         <input type='time' id='${day}_s2' oninput="focusNext(this, '${day}_w2')">
+        <span class='time-separator'>〜</span>
         <input type='time' id='${day}_w2'>
       </div>
       <div id='eval_${day}'></div>`;
