@@ -2,261 +2,135 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>睡眠リズムツール</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <title>睡眠記録ブック</title>
+  <link rel="stylesheet" href="https://unpkg.com/swiper/swiper-bundle.min.css" />
+  <script src="https://unpkg.com/swiper/swiper-bundle.min.js"></script>
   <style>
     body {
       margin: 0;
       font-family: 'Noto Sans JP', sans-serif;
-      background: linear-gradient(to bottom, #cce7ff, #e6f7ff);
+      background: #dff6fd;
       color: #333;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 1rem;
-      box-sizing: border-box;
+      justify-content: center;
+      height: 100vh;
+      overflow: hidden;
     }
-    h1 {
+    .book-cover {
+      background: linear-gradient(135deg, #5d4037, #3e2723);
+      color: #fff;
+      width: 90vw;
+      height: 90vh;
+      border-radius: 16px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      text-align: center;
+    }
+    .swiper-container {
+      width: 100vw;
+      height: 100vh;
+    }
+    .swiper-slide {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #dff6fd;
+      font-size: 1rem;
+    }
+    .day-title {
+      font-size: 1.5rem;
       margin-bottom: 1rem;
       color: #007acc;
     }
-    .section-title {
-      font-weight: bold;
-      margin-top: 1rem;
-      margin-bottom: 0.5rem;
-      font-size: 1.1rem;
-    }
-    .input-group {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 1rem;
-      justify-content: center;
-      margin-bottom: 1rem;
-    }
-    label {
-      display: block;
-      font-size: 0.9rem;
-    }
-    input[type="time"], input[type="number"] {
-      width: 120px;
+    input[type="time"] {
       padding: 0.3rem;
       border-radius: 6px;
       border: 1px solid #aaa;
+      margin-bottom: 0.5rem;
     }
-    .day-container {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 1rem;
-      max-width: 900px;
-    }
-    .day-box {
-      background: #ffffffcc;
-      border-radius: 12px;
-      padding: 1rem;
-      width: 140px;
-      box-shadow: 0 0 8px rgba(0,0,0,0.1);
-    }
-    .results {
-      margin-top: 2rem;
-      text-align: center;
-    }
-    .star-rating img {
-      width: 80px;
-      height: auto;
-      margin: 0.5rem;
-    }
-    canvas {
-      max-width: 100%;
+    button {
+      background: #66ccff;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+      margin-top: 1rem;
     }
   </style>
 </head>
 <body>
-  <h1>睡眠リズム評価ツール</h1>  <div class="section-title">MSTに基づく就寝・起床提案</div>
-  <div class="input-group">
-    <div><label>就寝予定時刻</label><input type="time" id="plannedStart"></div>
-    <div><label>希望睡眠時間（分）</label><input type="number" id="desiredDuration" min="0" max="1440"></div>
-    <div><label>希望MST（中央時刻）</label><input type="time" id="targetMST"></div>
+<div class="swiper-container">
+  <div class="swiper-wrapper">
+    <div class="swiper-slide">
+      <div class="book-cover">
+        <div>睡眠記録</div>
+      </div>
+    </div>
+    <div class="swiper-slide">
+      <div class="day-title">月曜日</div>
+      就寝1:<input type="time" id="mon_s1"><br>
+      起床1:<input type="time" id="mon_w1"><br>
+      就寝2:<input type="time" id="mon_s2"><br>
+      起床2:<input type="time" id="mon_w2"><br>
+      <button onclick="calculate('mon')">評価</button>
+      <div id="mon_result"></div>
+    </div>
+    <div class="swiper-slide">
+      <div class="day-title">火曜日</div>
+      就寝1:<input type="time" id="tue_s1"><br>
+      起床1:<input type="time" id="tue_w1"><br>
+      就寝2:<input type="time" id="tue_s2"><br>
+      起床2:<input type="time" id="tue_w2"><br>
+      <button onclick="calculate('tue')">評価</button>
+      <div id="tue_result"></div>
+    </div>
+    <!-- 同様に水〜日も追加可 -->
   </div>
-  <button onclick="suggestSleepTime()">提案する</button>
-  <div id="suggestionResult" style="margin: 1rem;"></div>  <hr style="width: 80%; margin: 2rem 0;">  <div class="section-title">週ごとの睡眠スケジュール入力</div>
-  <div class="day-container" id="dayContainer"></div>
-  <button onclick="evaluate()">評価する</button>  <div class="results">
-    <h2>評価</h2>
-    <div>睡眠時間のばらつき：</div>
-    <div class="star-rating" id="durationStars"></div>
-    <div>MST（中間時刻）のばらつき：</div>
-    <div class="star-rating" id="mstStars"></div>
-    <h3>週の統計</h3>
-    <div id="weeklyStats"></div><h3>ミッドスリープタイム可視化</h3>
-<canvas id="mstChart" height="300"></canvas>
-<h3>合計睡眠時間可視化</h3>
-<canvas id="sleepChart" height="300"></canvas>
+</div><script>
+  var swiper = new Swiper('.swiper-container', {
+    effect: 'slide',
+    grabCursor: true,
+    centeredSlides: true,
+    slidesPerView: 1,
+    allowTouchMove: true,
+  });
 
-  </div>  <script>
-    function timeToMin(t) {
-      if (!t) return null;
-      const [h, m] = t.split(":").map(Number);
-      return h * 60 + m;
-    }
+  function timeToMin(t) {
+    if (!t) return null;
+    const [h, m] = t.split(":").map(Number);
+    return h * 60 + m;
+  }
+  function minToTime(min) {
+    min = (min + 1440) % 1440;
+    const h = Math.floor(min / 60).toString().padStart(2, "0");
+    const m = Math.floor(min % 60).toString().padStart(2, "0");
+    return `${h}:${m}`;
+  }
+  function calculate(day) {
+    const s1 = timeToMin(document.getElementById(`${day}_s1`).value);
+    const w1 = timeToMin(document.getElementById(`${day}_w1`).value);
+    const s2 = timeToMin(document.getElementById(`${day}_s2`).value);
+    const w2 = timeToMin(document.getElementById(`${day}_w2`).value);
 
-    function minToTime(min) {
-      min = (min + 1440) % 1440;
-      const h = Math.floor(min / 60).toString().padStart(2, "0");
-      const m = Math.floor(min % 60).toString().padStart(2, "0");
-      return `${h}:${m}`;
-    }
+    const d1 = s1 != null && w1 != null ? (w1 - s1 + 1440) % 1440 : 0;
+    const d2 = s2 != null && w2 != null ? (w2 - s2 + 1440) % 1440 : 0;
 
-    function suggestSleepTime() {
-      const start = timeToMin(document.getElementById("plannedStart").value);
-      const duration = parseInt(document.getElementById("desiredDuration").value);
-      const targetMST = timeToMin(document.getElementById("targetMST").value);
+    const score1 = Math.round((d1 / 510) * 100);
+    const fullScore2 = 100 - score1;
+    const threshold = 510 * score1 / 100;
+    const score2 = d2 >= threshold ? fullScore2 : Math.round((d2 / threshold) * fullScore2);
+    const total = d1 + d2;
+    const mst = d1 >= d2 ? (s1 + d1 / 2) % 1440 : (s2 + d2 / 2) % 1440;
 
-      if (start == null || isNaN(duration) || targetMST == null) {
-        document.getElementById("suggestionResult").innerText = "すべての項目を入力してください。";
-        return;
-      }
-
-      let bestStart = null;
-      let bestEnd = null;
-      let maxDuration = 0;
-
-      for (let d = duration; d <= 600; d++) {
-        const s = start;
-        const e = (s + d) % 1440;
-        const mst = (s + d / 2) % 1440;
-        const diff = Math.min(Math.abs(mst - targetMST), 1440 - Math.abs(mst - targetMST));
-        if (diff <= 30) {
-          bestStart = s;
-          bestEnd = e;
-          maxDuration = d;
-        }
-      }
-
-      if (bestStart !== null) {
-        const mst = (bestStart + maxDuration / 2) % 1440;
-        document.getElementById("suggestionResult").innerText = `提案: ${minToTime(bestStart)} ～ ${minToTime(bestEnd)}（MST: ${minToTime(mst)}）`;
-      } else {
-        document.getElementById("suggestionResult").innerText = "条件に合う時間帯が見つかりませんでした。";
-      }
-    }
-
-    const days = ["月", "火", "水", "木", "金", "土", "日"];
-    const container = document.getElementById("dayContainer");
-
-    days.forEach((day, i) => {
-      const box = document.createElement("div");
-      box.className = "day-box";
-      box.innerHTML = `
-        <strong>${day}</strong><br>
-        就寝1:<br><input type="time" id="s${i}_1">
-        起床1:<br><input type="time" id="w${i}_1">
-        就寝2:<br><input type="time" id="s${i}_2">
-        起床2:<br><input type="time" id="w${i}_2">
-      `;
-      container.appendChild(box);
-    });
-
-    function evaluate() {
-      const dailyTotals = [], dailyMSTs = [], labels = [];
-
-      for (let i = 0; i < 7; i++) {
-        const s1 = timeToMin(document.getElementById(`s${i}_1`).value);
-        const w1 = timeToMin(document.getElementById(`w${i}_1`).value);
-        const s2 = timeToMin(document.getElementById(`s${i}_2`).value);
-        const w2 = timeToMin(document.getElementById(`w${i}_2`).value);
-
-        const d1 = s1 != null && w1 != null ? (w1 - s1 + 1440) % 1440 : 0;
-        const d2 = s2 != null && w2 != null ? (w2 - s2 + 1440) % 1440 : 0;
-        const total = d1 + d2;
-        dailyTotals.push(total);
-
-        let mainSleep = d1 >= d2 ? {s: s1, w: w1, d: d1} : {s: s2, w: w2, d: d2};
-        if (mainSleep.d > 0) {
-          let mst = (mainSleep.s + mainSleep.d / 2) % 1440;
-          dailyMSTs.push(mst);
-        } else {
-          dailyMSTs.push(null);
-        }
-        labels.push(days[i]);
-      }
-
-      const validTotals = dailyTotals.filter(v => v > 0);
-      const validMSTs = dailyMSTs.filter(v => v !== null);
-
-      const maxT = Math.max(...validTotals);
-      const minT = Math.min(...validTotals);
-      const maxMST = Math.max(...validMSTs);
-      const minMST = Math.min(...validMSTs);
-
-      const totalGap = maxT - minT;
-      const mstGap = Math.abs(maxMST - minMST);
-
-      function starPath(val, t1, t2) {
-        if (val <= t1) return "star3.png";
-        else if (val <= t2) return "star2.png";
-        else return "star1.png";
-      }
-
-      document.getElementById("durationStars").innerHTML = `<img src="${starPath(totalGap, 120, 180)}">`;
-      document.getElementById("mstStars").innerHTML = `<img src="${starPath(mstGap, 60, 90)}">`;
-
-      const avgSleep = validTotals.reduce((a, b) => a + b, 0) / validTotals.length;
-      const sumSleep = validTotals.reduce((a, b) => a + b, 0);
-
-      document.getElementById("weeklyStats").innerHTML = `
-        平均睡眠時間：${(avgSleep/60).toFixed(2)} 時間<br>
-        合計睡眠時間：${(sumSleep/60).toFixed(2)} 時間
-      `;
-
-      const ctx1 = document.getElementById("mstChart").getContext("2d");
-      new Chart(ctx1, {
-        type: 'bar',
-        data: {
-          labels,
-          datasets: [{
-            label: 'Mid Sleep Time',
-            data: dailyMSTs,
-            backgroundColor: '#66ccff'
-          }]
-        },
-        options: {
-          responsive: true,
-          scales: {
-            y: {
-              min: 0,
-              max: 1440,
-              ticks: {
-                callback: val => minToTime(val)
-              }
-            }
-          }
-        }
-      });
-
-      const ctx2 = document.getElementById("sleepChart").getContext("2d");
-      new Chart(ctx2, {
-        type: 'bar',
-        data: {
-          labels,
-          datasets: [{
-            label: 'Total Sleep Duration (min)',
-            data: dailyTotals,
-            backgroundColor: '#99ddff'
-          }]
-        },
-        options: {
-          responsive: true,
-          scales: {
-            y: {
-              beginAtZero: true,
-              ticks: {
-                callback: val => `${(val/60).toFixed(1)}h`
-              }
-            }
-          }
-        }
-      });
-    }
-  </script></body>
+    document.getElementById(`${day}_result`).innerText =
+      `1回目: ${score1}点\n2回目: ${score2}点\n合計睡眠: ${minToTime(total)}\nMST: ${minToTime(mst)}`;
+  }
+</script></body>
 </html>
