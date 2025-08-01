@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="ja">
+<!DOCTYPE html>
+<html lang="ja">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -36,21 +37,10 @@
       margin-bottom: 0.5rem;
       color: #007acc;
     }
-    .sleep-row {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      margin-bottom: 0.5rem;
-    }
-    .sleep-label {
-      width: 3rem;
-      text-align: right;
-      margin-right: 0.5rem;
-    }
     .sleep-header {
       display: flex;
       justify-content: center;
-      gap: 1.5rem;
+      gap: 1rem;
       margin-bottom: 0.3rem;
       font-weight: bold;
     }
@@ -72,9 +62,6 @@
       padding: 0.3rem;
       border-radius: 6px;
       border: 1px solid #aaa;
-    }
-    .result-line {
-      margin: 0.3rem 0;
     }
     button {
       background: #66ccff;
@@ -98,10 +85,11 @@
   <h2>睡眠スケジュール</h2>
   <div class="header-form">
     <label>就寝予定時刻:<input type="time" id="plannedStart"></label>
-    <label>希望睡眠時間(分):<input type="number" id="desiredDuration" min="0" max="1440" step="1"><br>
-  MST:<input type="time" id="targetMST"><br>
-  <button onclick="suggestSleepTime()">提案</button>
-  <div id="suggestionResult"></div>
+    <label>希望睡眠時間(分):<input type="number" id="desiredDuration" min="0" max="1440" step="1"></label>
+    <label>MST:<input type="time" id="targetMST"></label>
+    <button onclick="suggestSleepTime()">提案</button>
+    <div id="suggestionResult"></div>
+  </div>
 </div>
 <div id="daysContainer"></div>
 <div class="footer">
@@ -122,6 +110,19 @@
     }
   }
 
+  function timeToMin(t) {
+    if (!t) return null;
+    const [h, m] = t.split(":").map(Number);
+    return h * 60 + m;
+  }
+
+  function minToTime(min) {
+    min = (min + 1440) % 1440;
+    const h = Math.floor(min / 60).toString().padStart(2, "0");
+    const m = Math.floor(min % 60).toString().padStart(2, "0");
+    return `${h}:${m}`;
+  }
+
   weekdays.forEach((day, i) => {
     const block = document.createElement("div");
     block.className = "day-block";
@@ -129,35 +130,56 @@
       <div class='sleep-header'>
         <div class='time-label'>就寝</div>
         <div class='time-label'>起床</div>
+        <div class='time-label'>合計</div>
+        <div class='time-label'>MST</div>
       </div>
       <div class='time-pair'>
-        <input type='time' id='${day}_s1' oninput="focusNext(this, '${day}_w1')">
+        <input type='time' id='${day}_s1' oninput="focusNext(this, '${day}_w1'); evaluateAll();">
         <span class='time-separator'>〜</span>
-        <input type='time' id='${day}_w1'>
+        <input type='time' id='${day}_w1' oninput="evaluateAll();">
+        <span id='${day}_total' class='time-label'>--h--m</span>
+        <span id='${day}_mst' class='time-label'>--:--</span>
       </div>
       <div class='time-pair'>
-        <input type='time' id='${day}_s2' oninput="focusNext(this, '${day}_w2')">
+        <input type='time' id='${day}_s2' oninput="focusNext(this, '${day}_w2'); evaluateAll();">
         <span class='time-separator'>〜</span>
-        <input type='time' id='${day}_w2'>
+        <input type='time' id='${day}_w2' oninput="evaluateAll();">
       </div>
       <div id='eval_${day}'></div>`;
     container.appendChild(block);
   });
 
   const clearBtn = document.createElement("button");
-  clearBtn.textContent = "クリア";
+  clearBtn.textContent = "消去";
   clearBtn.onclick = () => {
     weekdays.forEach(day => {
       ["s1","w1","s2","w2"].forEach(t => {
         document.getElementById(`${day}_${t}`).value = "";
       });
       document.getElementById(`eval_${day}`).innerHTML = "";
+      document.getElementById(`${day}_total`).innerText = "--h--m";
+      document.getElementById(`${day}_mst`).innerText = "--:--";
     });
     document.getElementById("weeklyStats").innerText = "";
     Chart.getChart("sleepChart")?.destroy();
     Chart.getChart("mstChart")?.destroy();
   };
   container.appendChild(clearBtn);
+
+  function evaluateAll() {
+    weekdays.forEach(day => {
+      const s1 = timeToMin(document.getElementById(`${day}_s1`).value);
+      const w1 = timeToMin(document.getElementById(`${day}_w1`).value);
+      const s2 = timeToMin(document.getElementById(`${day}_s2`).value);
+      const w2 = timeToMin(document.getElementById(`${day}_w2`).value);
+      const d1 = s1 != null && w1 != null ? (w1 - s1 + 1440) % 1440 : 0;
+      const d2 = s2 != null && w2 != null ? (w2 - s2 + 1440) % 1440 : 0;
+      const total = d1 + d2;
+      const mst = d1 >= d2 ? (s1 + d1 / 2) % 1440 : (s2 + d2 / 2) % 1440;
+      document.getElementById(`${day}_total`).innerText = `${Math.floor(total/60)}h${total%60}m`;
+      document.getElementById(`${day}_mst`).innerText = minToTime(mst);
+    });
+  }
 </script>
 </body>
 </html>
