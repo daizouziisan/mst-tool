@@ -2,7 +2,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>睡眠記録ブック</title>
+  <title>睡眠記録</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body {
@@ -54,9 +54,9 @@
 </head>
 <body>
 <div class="header">
-  <h2>MST提案ツール</h2>
-  就寝予定:<input type="time" id="plannedStart">
-  時間(分):<input type="number" id="desiredDuration" min="0" max="1440">
+  <h2>睡眠スケジュール</h2>
+  就寝予定時刻:<input type="time" id="plannedStart">
+  希望睡眠時間(分):<input type="number" id="desiredDuration" min="0" max="1440">
   MST:<input type="time" id="targetMST">
   <button onclick="suggestSleepTime()">提案</button>
   <div id="suggestionResult"></div>
@@ -84,7 +84,7 @@
   });
 
   const clearBtn = document.createElement("button");
-  clearBtn.textContent = "記録をすべて消去";
+  clearBtn.textContent = "消去";
   clearBtn.onclick = () => {
     weekdays.forEach(day => {
       ["s1","w1","s2","w2"].forEach(t => {
