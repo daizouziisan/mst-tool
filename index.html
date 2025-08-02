@@ -13,6 +13,8 @@
     .header-form label { display: flex; justify-content: center; align-items: center; gap: 0.5rem; }
     .header-form input[type="time"], .header-form input[type="number"],
     input[type="time"] { padding: 0.1rem; border-radius: 4px; border: 1px solid #aaa; width: 60px; text-align: center; }
+    .suggestions { margin-top: 1rem; text-align: center; }
+    .suggestion-item { margin: 0.3rem 0; }
     .day-block { margin: 1rem auto; background: #f0fbff; padding: 1rem; border-radius: 12px; box-shadow: 0 0 10px rgba(0,0,0,0.1); max-width: 440px; text-align: center; }
     .day-title { font-size: 1.2rem; margin-bottom: 0.5rem; color: #007acc; }
     .table-grid { display: grid; grid-template-columns: 1fr 0.3fr 1fr 0.8fr 1fr 1fr; align-items: center; text-align: center; font-size: 0.9rem; margin-bottom: 0.3rem; }
@@ -31,25 +33,11 @@
     <label>希望睡眠時間(分):<input type="number" id="desiredDuration" min="0" max="1440" step="1"></label>
     <label>MST:<input type="time" id="targetMST"></label>
     <button onclick="suggestSleepTime()">提案</button>
-    <div id="suggestionResult"></div>
+    <div class="suggestions" id="suggestionResult"></div>
   </div>
 </div>
-<div id="daysContainer"></div>
-<div class="footer">
-  <h3>週の統計とグラフ</h3>
-  <button onclick="evaluateAll()">週の評価</button>
-  <div id="weeklyStats"></div>
-  <canvas id="mstChart" height="400"></canvas>
-  <div class="stars" id="starRatings"></div>
-</div>
+<!-- その他のコード省略 -->
 <script>
-const weekdays = ["mon","tue","wed","thu","fri","sat","sun"];
-const labels = ["月","火","水","木","金","土","日"];
-const container = document.getElementById("daysContainer");
-
-function focusNext(current, nextId) {
-  if (current.value) document.getElementById(nextId).focus();
-}
 function timeToMin(t) {
   if (!t) return null;
   const [h, m] = t.split(":").map(Number);
@@ -61,45 +49,6 @@ function minToTime(min) {
   const m = Math.floor(min % 60).toString().padStart(2, "0");
   return `${h}:${m}`;
 }
-
-weekdays.forEach((day, i) => {
-  const block = document.createElement("div");
-  block.className = "day-block";
-  block.innerHTML = `<div class='day-title'>${labels[i]}曜日</div>
-    <div class='table-grid'><div>就寝</div><div></div><div>起床</div><div>点数</div><div>合計</div><div>MST</div></div>
-    <div class='table-grid'>
-      <div class='input-cell'><input type='time' id='${day}_s1' oninput="focusNext(this, '${day}_w1'); evaluateAll();"></div>
-      <div>〜</div>
-      <div class='input-cell'><input type='time' id='${day}_w1' oninput="evaluateAll();"></div>
-      <div id='${day}_score1'>--点</div><div></div><div></div>
-    </div>
-    <div class='table-grid'><div></div><div></div><div></div><div></div>
-      <div id='${day}_total'>--h--m</div><div id='${day}_mst'>--:--</div></div>
-    <div class='table-grid'>
-      <div class='input-cell'><input type='time' id='${day}_s2' oninput="focusNext(this, '${day}_w2'); evaluateAll();"></div>
-      <div>〜</div>
-      <div class='input-cell'><input type='time' id='${day}_w2' oninput="evaluateAll();"></div>
-      <div id='${day}_score2'>--点</div><div></div><div></div>
-    </div>`;
-  container.appendChild(block);
-});
-
-const clearBtn = document.createElement("button");
-clearBtn.textContent = "消去";
-clearBtn.onclick = () => {
-  weekdays.forEach(day => {
-    ["s1","w1","s2","w2"].forEach(t => document.getElementById(`${day}_${t}`).value = "");
-    document.getElementById(`${day}_total`).innerText = "--h--m";
-    document.getElementById(`${day}_mst`).innerText = "--:--";
-    document.getElementById(`${day}_score1`).innerText = "--点";
-    document.getElementById(`${day}_score2`).innerText = "--点";
-  });
-  document.getElementById("weeklyStats").innerText = "";
-  document.getElementById("starRatings").innerHTML = "";
-  Chart.getChart("mstChart")?.destroy();
-};
-container.appendChild(clearBtn);
-
 function suggestSleepTime() {
   const start = timeToMin(document.getElementById("plannedStart").value);
   const duration = parseInt(document.getElementById("desiredDuration").value);
@@ -107,82 +56,20 @@ function suggestSleepTime() {
   if (start == null || isNaN(duration) || targetMST == null) {
     document.getElementById("suggestionResult").innerText = "入力が不完全です。"; return;
   }
-  let s = start, e = (s + duration) % 1440, mst = (s + duration / 2) % 1440;
-  const diff = Math.abs(mst - targetMST);
-  document.getElementById("suggestionResult").innerText =
-    diff <= 30 ? `${minToTime(s)}〜${minToTime(e)} (MST:${minToTime(mst)})` : "適した時間帯が見つかりません。";
-}
-
-function evaluateAll() {
-  let count = 0, totals = [], msts = [];
-  let sleep1 = [], sleep2 = [], mstLines = [], usedLabels = [];
-  weekdays.forEach((day, i) => {
-    const s1 = timeToMin(document.getElementById(`${day}_s1`).value);
-    const w1 = timeToMin(document.getElementById(`${day}_w1`).value);
-    const s2 = timeToMin(document.getElementById(`${day}_s2`).value);
-    const w2 = timeToMin(document.getElementById(`${day}_w2`).value);
-    const d1 = s1 != null && w1 != null ? (w1 - s1 + 1440) % 1440 : 0;
-    const d2 = s2 != null && w2 != null ? (w2 - s2 + 1440) % 1440 : 0;
-    const total = d1 + d2;
-    const mst = d1 >= d2 && d1 > 0 ? (s1 + d1 / 2) % 1440 : d2 > 0 ? (s2 + d2 / 2) % 1440 : null;
-    const score1 = d1 > 0 ? Math.min(100, Math.round(d1 / 5.1)) : 0;
-    const score2 = d2 > 0 ? Math.min(100 - score1, Math.round(d2 / 5.1)) : 0;
-    document.getElementById(`${day}_total`).innerText = `${Math.floor(total/60)}h${total%60}m`;
-    document.getElementById(`${day}_mst`).innerText = mst != null ? minToTime(mst) : "--:--";
-    document.getElementById(`${day}_score1`).innerText = `${score1}点`;
-    document.getElementById(`${day}_score2`).innerText = `${score2}点`;
-    if (total > 0 && mst != null) {
-      count++;
-      totals.push(total);
-      msts.push(mst);
-      usedLabels.push(labels[i]);
-      sleep1.push(s1 != null && w1 != null ? {start: s1, end: w1} : null);
-      sleep2.push(s2 != null && w2 != null ? {start: s2, end: w2} : null);
-      mstLines.push(mst);
+  const results = [];
+  for (let offset = 0; offset <= 120; offset += 5) {
+    for (let s = start; s < start + 120; s += 5) {
+      const e = (s + offset) % 1440;
+      const mst = (s + offset / 2) % 1440;
+      let diff = Math.abs(mst - targetMST);
+      if (diff > 720) diff = 1440 - diff;
+      if (diff <= 30) results.push({ s, e, mst, len: offset });
     }
-  });
-
-  Chart.getChart("mstChart")?.destroy();
-  const ctx = document.getElementById("mstChart").getContext('2d');
-  const barData1 = sleep1.map(s => s ? s.end - s.start : 0);
-  const barBase1 = sleep1.map(s => s ? s.start : 0);
-  const barData2 = sleep2.map(s => s ? s.end - s.start : 0);
-  const barBase2 = sleep2.map(s => s ? s.start : 0);
-  new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: usedLabels,
-      datasets: [
-        { label: '1回目', data: barData1, backgroundColor:'#99ddff', stack:'sleep', base: barBase1 },
-        { label: '2回目', data: barData2, backgroundColor:'#66ccff', stack:'sleep', base: barBase2 },
-        { type:'line', label:'MST', data: mstLines, borderColor:'#fff', backgroundColor:'#fff', borderWidth:2, pointRadius:0 }
-      ]
-    },
-    options: {
-      scales: {
-        y: {
-          min: 960, max: 2400,
-          ticks: { callback: v => minToTime(v % 1440) }
-        }
-      },
-      responsive: true,
-      maintainAspectRatio: false
-    }
-  });
-
-  if (count >= 3) {
-    const diffT = Math.max(...totals) - Math.min(...totals);
-    const diffM = Math.max(...msts) - Math.min(...msts);
-    const starT = diffT <= 120 ? 3 : diffT <= 180 ? 2 : 1;
-    const starM = diffM <= 60 ? 3 : diffM <= 90 ? 2 : 1;
-    document.getElementById("weeklyStats").innerText =
-      `睡眠時間差:${(diffT/60).toFixed(1)}h MST差:${(diffM/60).toFixed(1)}h`;
-    document.getElementById("starRatings").innerHTML =
-      `合計:<img src="images/star${starT}.png"> MST:<img src="images/star${starM}.png">`;
-  } else {
-    document.getElementById("weeklyStats").innerText = "";
-    document.getElementById("starRatings").innerHTML = "";
   }
+  results.sort((a, b) => a.s - b.s);
+  const resultDiv = document.getElementById("suggestionResult");
+  resultDiv.innerHTML = results.slice(0, 3).map(r => `<div class="suggestion-item">${minToTime(r.s)}〜${minToTime(r.e)} MST:${minToTime(r.mst)}</div>`).join("");
+  if (results.length === 0) resultDiv.innerText = "適した時間帯が見つかりません。";
 }
 </script>
 </body>
