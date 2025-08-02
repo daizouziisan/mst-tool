@@ -49,11 +49,13 @@
   function focusNext(current, nextId) {
     if (current.value) document.getElementById(nextId).focus();
   }
+
   function timeToMin(t) {
     if (!t) return null;
     const [h, m] = t.split(":").map(Number);
     return h * 60 + m;
   }
+
   function minToTime(min) {
     min = (min + 1440) % 1440;
     const h = Math.floor(min / 60).toString().padStart(2, "0");
@@ -153,9 +155,7 @@
           scales: {
             x: {
               min: 960, max: 2400,
-              ticks: {
-                callback: v => minToTime(v % 1440)
-              }
+              ticks: { callback: v => minToTime(v % 1440) }
             }
           }
         }
@@ -173,7 +173,7 @@
       document.getElementById("weeklyStats").innerText =
         `睡眠時間差:${(diffT/60).toFixed(1)}h MST差:${(diffM/60).toFixed(1)}h`;
       document.getElementById("starRatings").innerHTML =
-        `合計:<img src="star${starT}.png" alt="star${starT}"> MST:<img src="star${starM}.png" alt="star${starM}">`;
+        `合計:<img src="images/star${starT}.png" alt="star${starT}"> MST:<img src="images/star${starM}.png" alt="star${starM}">`;
     } else {
       document.getElementById("weeklyStats").innerText = "";
       document.getElementById("starRatings").innerHTML = "";
