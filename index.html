@@ -22,8 +22,6 @@
     .stars { margin-top: 1rem; text-align: center; }
     .stars img { width: 60px; margin: 0 5px; }
     #suggestionResult div { margin: 0.3rem 0; }
-    .highlight-red { border-bottom: 2px solid red; }
-    .highlight-blue { border-bottom: 2px solid blue; }
   </style>
 </head>
 <body>
@@ -96,8 +94,6 @@ clearBtn.onclick = () => {
     document.getElementById(`${day}_mst`).innerText = "--:--";
     document.getElementById(`${day}_score1`).innerText = "--点";
     document.getElementById(`${day}_score2`).innerText = "--点";
-    document.getElementById(`${day}_total`).className = "";
-    document.getElementById(`${day}_mst`).className = "";
   });
   document.getElementById("weeklyStats").innerText = "";
   document.getElementById("starRatings").innerHTML = "";
@@ -105,46 +101,67 @@ clearBtn.onclick = () => {
 };
 container.appendChild(clearBtn);
 
-function suggestSleepTime() {
-  const start = timeToMin(document.getElementById("plannedStart").value);
-  const duration = parseInt(document.getElementById("desiredDuration").value);
-  const targetMST = timeToMin(document.getElementById("targetMST").value);
-  const resultDiv = document.getElementById("suggestionResult");
-  resultDiv.innerHTML = "";
-  if (start == null || isNaN(duration) || targetMST == null) {
-    resultDiv.innerText = "入力が不完全です。"; return;
-  }
+function evaluateAll() {
+  let count = 0, totals = [], msts = [], labelsUsed = [];
+  weekdays.forEach((day, i) => {
+    const s1 = timeToMin(document.getElementById(`${day}_s1`).value);
+    const w1 = timeToMin(document.getElementById(`${day}_w1`).value);
+    const s2 = timeToMin(document.getElementById(`${day}_s2`).value);
+    const w2 = timeToMin(document.getElementById(`${day}_w2`).value);
+    const d1 = s1 != null && w1 != null ? (w1 - s1 + 1440) % 1440 : 0;
+    const d2 = s2 != null && w2 != null ? (w2 - s2 + 1440) % 1440 : 0;
+    const total = d1 + d2;
+    const mst = d1 >= d2 && d1 > 0 ? (s1 + d1 / 2) % 1440 : d2 > 0 ? (s2 + d2 / 2) % 1440 : null;
+    const score1 = d1 > 0 ? Math.min(100, Math.round(d1 / 5.1)) : 0;
+    const score2 = d2 > 0 ? Math.min(100 - score1, Math.round(d2 / 5.1)) : 0;
+    document.getElementById(`${day}_total`).innerText = `${Math.floor(total/60)}h${total%60}m`;
+    document.getElementById(`${day}_mst`).innerText = mst != null ? minToTime(mst) : "--:--";
+    document.getElementById(`${day}_score1`).innerText = `${score1}点`;
+    document.getElementById(`${day}_score2`).innerText = `${score2}点`;
+    if (total > 0 && mst != null) {
+      count++;
+      totals.push(total);
+      msts.push(mst);
+      labelsUsed.push(labels[i]);
+    }
+  });
 
-  let candidates = [];
-  for (let i = 0; i <= 180; i += 5) {
-    let s = (start + i) % 1440;
-    let maxDur = Math.min(duration, 1440 - i);
-    for (let d = maxDur; d >= 30; d -= 5) {
-      let e = (s + d) % 1440;
-      let mst = (s + d / 2) % 1440;
-      let diff = Math.min(Math.abs(mst - targetMST), 1440 - Math.abs(mst - targetMST));
-      if (diff <= 30) {
-        candidates.push({s, e, d, mst, diff, offset: i});
-        break;
+  const ctx = document.getElementById("mstChart").getContext('2d');
+  Chart.getChart("mstChart")?.destroy();
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labelsUsed,
+      datasets: [{
+        label: 'MST',
+        data: msts,
+        backgroundColor:'#99ddff'
+      }]
+    },
+    options: {
+      scales: {
+        y: {
+          min: 0, max: 1440,
+          ticks: { callback: v => minToTime(v) }
+        }
       }
     }
-  }
-
-  if (candidates.length === 0) {
-    resultDiv.innerText = "適した時間帯が見つかりません。";
-    return;
-  }
-
-  candidates.sort((a, b) => a.offset - b.offset || b.d - a.d);
-  const top3 = candidates.slice(0, 3);
-  top3.forEach(c => {
-    const div = document.createElement("div");
-    div.innerText = `${minToTime(c.s)}〜${minToTime(c.e)} (${c.d}分 MST:${minToTime(c.mst)})`;
-    resultDiv.appendChild(div);
   });
-}
 
-// evaluateAll関数を実装・保持（ここには省略せず実装する必要があります）
+  if (count >= 3) {
+    const diffT = Math.max(...totals) - Math.min(...totals);
+    const diffM = Math.max(...msts) - Math.min(...msts);
+    const starT = diffT <= 120 ? 3 : diffT <= 180 ? 2 : 1;
+    const starM = diffM <= 60 ? 3 : diffM <= 90 ? 2 : 1;
+    document.getElementById("weeklyStats").innerText =
+      `睡眠時間差:${(diffT/60).toFixed(1)}h MST差:${(diffM/60).toFixed(1)}h`;
+    document.getElementById("starRatings").innerHTML =
+      `合計:<img src="images/star${starT}.png"> MST:<img src="images/star${starM}.png">`;
+  } else {
+    document.getElementById("weeklyStats").innerText = "";
+    document.getElementById("starRatings").innerHTML = "";
+  }
+}
 </script>
 </body>
 </html>
