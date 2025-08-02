@@ -49,13 +49,11 @@
   function focusNext(current, nextId) {
     if (current.value) document.getElementById(nextId).focus();
   }
-
   function timeToMin(t) {
     if (!t) return null;
     const [h, m] = t.split(":").map(Number);
     return h * 60 + m;
   }
-
   function minToTime(min) {
     min = (min + 1440) % 1440;
     const h = Math.floor(min / 60).toString().padStart(2, "0");
@@ -115,47 +113,71 @@
   }
 
   function evaluateAll() {
-    let msts = [], durations = [], count = 0;
-    weekdays.forEach(day => {
+    let sleepSessions = [], msts = [], count = 0;
+    weekdays.forEach((day, idx) => {
       const s1 = timeToMin(document.getElementById(`${day}_s1`).value);
       const w1 = timeToMin(document.getElementById(`${day}_w1`).value);
       const s2 = timeToMin(document.getElementById(`${day}_s2`).value);
       const w2 = timeToMin(document.getElementById(`${day}_w2`).value);
       const d1 = s1 != null && w1 != null ? (w1 - s1 + 1440) % 1440 : 0;
       const d2 = s2 != null && w2 != null ? (w2 - s2 + 1440) % 1440 : 0;
-      if (d1 + d2 > 0) count++;
-      const total = d1 + d2, mst = d1 >= d2 ? (s1 + d1 / 2) % 1440 : (s2 + d2 / 2) % 1440;
-      const score1 = d1 > 0 ? Math.round(d1 / 5.1) : 0;
-      const fullScore2 = 100 - score1;
-      const threshold = 5.1 * score1;
-      const score2 = d2 >= threshold ? fullScore2 : Math.round((d2 / threshold) * fullScore2);
+      const total = d1 + d2;
+      if (total > 0) count++;
+      const mst = d1 >= d2 ? (s1 + d1 / 2) % 1440 : (s2 + d2 / 2) % 1440;
+      const score1 = d1 > 0 ? Math.round((d1 / 5.1)) : 0;
+      let score2 = 0;
+      if (d2 > 0) {
+        const fullScore2 = 100 - score1;
+        const threshold = 5.1 * score1;
+        score2 = d2 >= threshold ? fullScore2 : Math.round((d2 / threshold) * fullScore2);
+      }
       document.getElementById(`${day}_total`).innerText = `${Math.floor(total/60)}h${total%60}m`;
       document.getElementById(`${day}_mst`).innerText = minToTime(mst);
       document.getElementById(`${day}_score1`).innerText = `${score1}点`;
       document.getElementById(`${day}_score2`).innerText = `${score2}点`;
-      if (!isNaN(mst)) msts.push({ day: labels[weekdays.indexOf(day)], mst });
-      if (total > 0) durations.push(total);
+      sleepSessions.push({ day: labels[idx], s1, w1, s2, w2, mst, total });
     });
 
-    if (msts.length > 0) {
+    const valid = sleepSessions.filter(s => s.total > 0);
+    if (valid.length > 0) {
       Chart.getChart("mstChart")?.destroy();
-      new Chart(document.getElementById("mstChart"), {
+      const ctx = document.getElementById("mstChart").getContext('2d');
+      new Chart(ctx, {
         type: 'bar',
         data: {
-          labels: msts.map(x => x.day),
-          datasets: [{
-            label: 'MST',
-            data: msts.map(x => x.mst),
-            backgroundColor: '#66ccff',
-            barThickness: 30
-          }]
+          labels: labels,
+          datasets: [
+            {
+              label: '1回目',
+              data: sleepSessions.map(s => s.s1 != null && s.w1 != null ? [s.s1, s.w1] : null),
+              backgroundColor: '#99ddff',
+              barThickness: 12
+            },
+            {
+              label: '2回目',
+              data: sleepSessions.map(s => s.s2 != null && s.w2 != null ? [s.s2, s.w2] : null),
+              backgroundColor: '#66ccff',
+              barThickness: 12
+            },
+            {
+              type: 'line',
+              label: 'MST',
+              data: sleepSessions.map(s => s.total > 0 ? s.mst : null),
+              borderColor: '#ffffff',
+              backgroundColor: '#ffffff',
+              borderWidth: 2,
+              pointRadius: 0
+            }
+          ]
         },
         options: {
-          indexAxis: 'y',
+          indexAxis: 'x',
           scales: {
-            x: {
+            y: {
               min: 960, max: 2400,
-              ticks: { callback: v => minToTime(v % 1440) }
+              ticks: {
+                callback: v => minToTime(v % 1440)
+              }
             }
           }
         }
@@ -163,17 +185,16 @@
     }
 
     if (count >= 3) {
-      const mstVals = msts.map(x => x.mst);
-      const maxM = Math.max(...mstVals), minM = Math.min(...mstVals);
-      const diffM = maxM - minM;
-      const maxT = Math.max(...durations), minT = Math.min(...durations);
-      const diffT = maxT - minT;
+      const totals = valid.map(s => s.total);
+      const mstVals = valid.map(s => s.mst);
+      const diffT = Math.max(...totals) - Math.min(...totals);
+      const diffM = Math.max(...mstVals) - Math.min(...mstVals);
       const starT = diffT <= 120 ? 3 : diffT <= 180 ? 2 : 1;
       const starM = diffM <= 60 ? 3 : diffM <= 90 ? 2 : 1;
       document.getElementById("weeklyStats").innerText =
         `睡眠時間差:${(diffT/60).toFixed(1)}h MST差:${(diffM/60).toFixed(1)}h`;
       document.getElementById("starRatings").innerHTML =
-        `合計:<img src="images/star${starT}.png" alt="star${starT}"> MST:<img src="images/star${starM}.png" alt="star${starM}">`;
+        `合計:<img src="images/star${starT}.png"> MST:<img src="images/star${starM}.png">`;
     } else {
       document.getElementById("weeklyStats").innerText = "";
       document.getElementById("starRatings").innerHTML = "";
