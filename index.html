@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>睡眠記録</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
@@ -22,6 +22,8 @@
     .stars { margin-top: 1rem; text-align: center; }
     .stars img { width: 60px; margin: 0 5px; }
     #suggestionResult div { margin: 0.3rem 0; }
+    .highlight-red { border-bottom: 2px solid red; }
+    .highlight-blue { border-bottom: 2px solid blue; }
   </style>
 </head>
 <body>
@@ -94,6 +96,8 @@ clearBtn.onclick = () => {
     document.getElementById(`${day}_mst`).innerText = "--:--";
     document.getElementById(`${day}_score1`).innerText = "--点";
     document.getElementById(`${day}_score2`).innerText = "--点";
+    document.getElementById(`${day}_total`).className = "";
+    document.getElementById(`${day}_mst`).className = "";
   });
   document.getElementById("weeklyStats").innerText = "";
   document.getElementById("starRatings").innerHTML = "";
@@ -101,7 +105,6 @@ clearBtn.onclick = () => {
 };
 container.appendChild(clearBtn);
 
-// 修正: MST±30分内で最長睡眠時間の3つを中央揃えで表示
 function suggestSleepTime() {
   const start = timeToMin(document.getElementById("plannedStart").value);
   const duration = parseInt(document.getElementById("desiredDuration").value);
@@ -141,7 +144,7 @@ function suggestSleepTime() {
   });
 }
 
-// (evaluateAllは省略せず既存のまま保持)
+// evaluateAll関数を実装・保持（ここには省略せず実装する必要があります）
 </script>
 </body>
 </html>
