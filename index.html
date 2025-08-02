@@ -101,6 +101,45 @@ clearBtn.onclick = () => {
 };
 container.appendChild(clearBtn);
 
+function suggestSleepTime() {
+  const start = timeToMin(document.getElementById("plannedStart").value);
+  const duration = parseInt(document.getElementById("desiredDuration").value);
+  const targetMST = timeToMin(document.getElementById("targetMST").value);
+  const resultDiv = document.getElementById("suggestionResult");
+  resultDiv.innerHTML = "";
+  if (start == null || isNaN(duration) || targetMST == null) {
+    resultDiv.innerText = "入力が不完全です。"; return;
+  }
+
+  let candidates = [];
+  for (let i = 0; i <= 180; i += 5) {
+    let s = (start + i) % 1440;
+    let maxDur = Math.min(duration, 1440 - i);
+    for (let d = maxDur; d >= 30; d -= 5) {
+      let e = (s + d) % 1440;
+      let mst = (s + d / 2) % 1440;
+      let diff = Math.min(Math.abs(mst - targetMST), 1440 - Math.abs(mst - targetMST));
+      if (diff <= 30) {
+        candidates.push({s, e, d, mst, diff, offset: i});
+        break;
+      }
+    }
+  }
+
+  if (candidates.length === 0) {
+    resultDiv.innerText = "適した時間帯が見つかりません。";
+    return;
+  }
+
+  candidates.sort((a, b) => a.offset - b.offset || b.d - a.d);
+  const top3 = candidates.slice(0, 3);
+  top3.forEach(c => {
+    const div = document.createElement("div");
+    div.innerText = `${minToTime(c.s)}〜${minToTime(c.e)} (${c.d}分 MST:${minToTime(c.mst)})`;
+    resultDiv.appendChild(div);
+  });
+}
+
 function evaluateAll() {
   let count = 0, totals = [], msts = [], labelsUsed = [];
   weekdays.forEach((day, i) => {
