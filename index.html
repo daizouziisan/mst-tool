@@ -1,8 +1,9 @@
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>睡眠記録</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
@@ -10,7 +11,8 @@
     .header, .footer { padding: 1rem; text-align: center; }
     .header-form { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; margin-top: 1rem; }
     .header-form label { display: flex; justify-content: center; align-items: center; gap: 0.5rem; }
-    input[type="time"], input[type="number"] { padding: 0.1rem; border-radius: 4px; border: 1px solid #aaa; width: 60px; text-align: center; }
+    .header-form input[type="time"], .header-form input[type="number"],
+    input[type="time"] { padding: 0.1rem; border-radius: 4px; border: 1px solid #aaa; width: 60px; text-align: center; }
     .day-block { margin: 1rem auto; background: #f0fbff; padding: 1rem; border-radius: 12px; box-shadow: 0 0 10px rgba(0,0,0,0.1); max-width: 440px; text-align: center; }
     .day-title { font-size: 1.2rem; margin-bottom: 0.5rem; color: #007acc; }
     .table-grid { display: grid; grid-template-columns: 1fr 0.3fr 1fr 0.8fr 1fr 1fr; align-items: center; text-align: center; font-size: 0.9rem; margin-bottom: 0.3rem; }
@@ -32,9 +34,7 @@
     <div id="suggestionResult"></div>
   </div>
 </div>
-
 <div id="daysContainer"></div>
-
 <div class="footer">
   <h3>週の統計とグラフ</h3>
   <button onclick="evaluateAll()">週の評価</button>
@@ -42,7 +42,6 @@
   <canvas id="mstChart" height="400"></canvas>
   <div class="stars" id="starRatings"></div>
 </div>
-
 <script>
 const weekdays = ["mon","tue","wed","thu","fri","sat","sun"];
 const labels = ["月","火","水","木","金","土","日"];
@@ -63,7 +62,6 @@ function minToTime(min) {
   return `${h}:${m}`;
 }
 
-// 日毎入力欄を生成
 weekdays.forEach((day, i) => {
   const block = document.createElement("div");
   block.className = "day-block";
@@ -117,7 +115,7 @@ function suggestSleepTime() {
 
 function evaluateAll() {
   let count = 0, totals = [], msts = [];
-  let sleep1 = [], sleep2 = [], mstLines = [];
+  let sleep1 = [], sleep2 = [], mstLines = [], usedLabels = [];
   weekdays.forEach((day, i) => {
     const s1 = timeToMin(document.getElementById(`${day}_s1`).value);
     const w1 = timeToMin(document.getElementById(`${day}_w1`).value);
@@ -126,42 +124,49 @@ function evaluateAll() {
     const d1 = s1 != null && w1 != null ? (w1 - s1 + 1440) % 1440 : 0;
     const d2 = s2 != null && w2 != null ? (w2 - s2 + 1440) % 1440 : 0;
     const total = d1 + d2;
-    if (total > 0) count++;
-    const mst = d1 >= d2 ? (s1 + d1 / 2) % 1440 : (s2 + d2 / 2) % 1440;
+    const mst = d1 >= d2 && d1 > 0 ? (s1 + d1 / 2) % 1440 : d2 > 0 ? (s2 + d2 / 2) % 1440 : null;
     const score1 = d1 > 0 ? Math.min(100, Math.round(d1 / 5.1)) : 0;
     const score2 = d2 > 0 ? Math.min(100 - score1, Math.round(d2 / 5.1)) : 0;
     document.getElementById(`${day}_total`).innerText = `${Math.floor(total/60)}h${total%60}m`;
-    document.getElementById(`${day}_mst`).innerText = minToTime(mst);
+    document.getElementById(`${day}_mst`).innerText = mst != null ? minToTime(mst) : "--:--";
     document.getElementById(`${day}_score1`).innerText = `${score1}点`;
     document.getElementById(`${day}_score2`).innerText = `${score2}点`;
-    totals.push(total);
-    msts.push(mst);
-    sleep1.push([s1, w1]);
-    sleep2.push([s2, w2]);
-    mstLines.push(mst);
+    if (total > 0 && mst != null) {
+      count++;
+      totals.push(total);
+      msts.push(mst);
+      usedLabels.push(labels[i]);
+      sleep1.push(s1 != null && w1 != null ? {start: s1, end: w1} : null);
+      sleep2.push(s2 != null && w2 != null ? {start: s2, end: w2} : null);
+      mstLines.push(mst);
+    }
   });
 
   Chart.getChart("mstChart")?.destroy();
   const ctx = document.getElementById("mstChart").getContext('2d');
+  const barData1 = sleep1.map(s => s ? s.end - s.start : 0);
+  const barBase1 = sleep1.map(s => s ? s.start : 0);
+  const barData2 = sleep2.map(s => s ? s.end - s.start : 0);
+  const barBase2 = sleep2.map(s => s ? s.start : 0);
   new Chart(ctx, {
     type: 'bar',
     data: {
-      labels: labels,
+      labels: usedLabels,
       datasets: [
-        { label: '1回目', data: sleep1.map(([s,w])=>s!=null&&w!=null?w-s:0), backgroundColor:'#99ddff', stack:'sleep', base:sleep1.map(([s,w])=>s!=null?s:0)},
-        { label: '2回目', data: sleep2.map(([s,w])=>s!=null&&w!=null?w-s:0), backgroundColor:'#66ccff', stack:'sleep', base:sleep2.map(([s,w])=>s!=null?s:0)},
-        { type:'line', label:'MST', data: mstLines, backgroundColor:'#fff', borderColor:'#fff', borderWidth:2, pointRadius:0 }
+        { label: '1回目', data: barData1, backgroundColor:'#99ddff', stack:'sleep', base: barBase1 },
+        { label: '2回目', data: barData2, backgroundColor:'#66ccff', stack:'sleep', base: barBase2 },
+        { type:'line', label:'MST', data: mstLines, borderColor:'#fff', backgroundColor:'#fff', borderWidth:2, pointRadius:0 }
       ]
     },
     options: {
       scales: {
         y: {
           min: 960, max: 2400,
-          ticks: {
-            callback: v => minToTime(v % 1440)
-          }
+          ticks: { callback: v => minToTime(v % 1440) }
         }
-      }
+      },
+      responsive: true,
+      maintainAspectRatio: false
     }
   });
 
@@ -170,7 +175,8 @@ function evaluateAll() {
     const diffM = Math.max(...msts) - Math.min(...msts);
     const starT = diffT <= 120 ? 3 : diffT <= 180 ? 2 : 1;
     const starM = diffM <= 60 ? 3 : diffM <= 90 ? 2 : 1;
-    document.getElementById("weeklyStats").innerText = `睡眠時間差:${(diffT/60).toFixed(1)}h MST差:${(diffM/60).toFixed(1)}h`;
+    document.getElementById("weeklyStats").innerText =
+      `睡眠時間差:${(diffT/60).toFixed(1)}h MST差:${(diffM/60).toFixed(1)}h`;
     document.getElementById("starRatings").innerHTML =
       `合計:<img src="images/star${starT}.png"> MST:<img src="images/star${starM}.png">`;
   } else {
