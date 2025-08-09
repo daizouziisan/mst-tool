@@ -18,7 +18,7 @@
     .table-grid { display: grid; grid-template-columns: 1fr 0.3fr 1fr 0.8fr 1fr 1fr; align-items: center; text-align: center; font-size: 0.9rem; margin-bottom: 0.3rem; }
     .input-cell { display: flex; justify-content: center; }
     button { background: #66ccff; border: none; padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.9rem; cursor: pointer; margin: 0.5rem auto; display: block; }
-    canvas { max-width: 95%; margin: 1rem auto; display: block; background: #e9faff; }
+    canvas { max-width: 95%; margin: 1rem auto; display: block; background: #e9faff; height: 420px; }
     .stars { margin-top: 1rem; text-align: center; }
     .stars img { width: 60px; margin: 0 5px; }
     #suggestionResult div { margin: 0.3rem 0; }
@@ -42,7 +42,7 @@
   <h3>週の統計とグラフ</h3>
   <button onclick="evaluateAll()">週の評価</button>
   <div id="weeklyStats"></div>
-  <canvas id="mstChart" height="420"></canvas>
+  <canvas id="mstChart"></canvas>
   <div class="stars" id="starRatings"></div>
 </div>
 
@@ -52,14 +52,12 @@ const labels = ["月","火","水","木","金","土","日"];
 const container = document.getElementById("daysContainer");
 const CUTOFF_MIN = 4 * 60; // 04:00
 
-/* ---------- utils ---------- */
 function focusNext(current, nextId) { if (current.value) document.getElementById(nextId).focus(); }
 function timeToMin(t){ if(!t) return null; const [h,m]=t.split(":").map(Number); return h*60+m; }
 function minToTime(min){ min=(min+1440)%1440; const h=String(Math.floor(min/60)).padStart(2,"0"); const m=String(min%60).padStart(2,"0"); return `${h}:${m}`; }
 function nextIndex(i){ return (i+1) % 7; }
 function dayLabel(i){ return labels[(i+7)%7]; }
 
-/* ---------- day inputs ---------- */
 weekdays.forEach((day, i) => {
   const block = document.createElement("div");
   block.className = "day-block";
@@ -82,7 +80,6 @@ weekdays.forEach((day, i) => {
   container.appendChild(block);
 });
 
-/* ---------- clear ---------- */
 const clearBtn = document.createElement("button");
 clearBtn.textContent = "消去";
 clearBtn.onclick = () => {
@@ -99,7 +96,7 @@ clearBtn.onclick = () => {
 };
 container.appendChild(clearBtn);
 
-/* ---------- proposal ---------- */
+/* 提案 */
 function suggestSleepTime() {
   const start = timeToMin(document.getElementById("plannedStart").value);
   const duration = parseInt(document.getElementById("desiredDuration").value);
@@ -129,13 +126,13 @@ function suggestSleepTime() {
   });
 }
 
-/* ---------- evaluate + chart ---------- */
+/* 評価＋グラフ */
 function evaluateAll() {
   let count = 0, totals = [], msts = [];
 
-  // グラフ用データ（浮動バー）
-  const dsSleep = []; // 通常
-  const dsMST   = []; // MST帯（±3分）
+  // グラフ用データ
+  const dsSleep = []; // {x:'月', y:[start,end]}
+  const dsMST   = []; // {x:'月', y:[mst-3,mst+3]}
 
   function addBar(dayIdx, start, end){
     dsSleep.push({x: dayLabel(dayIdx), y: [start, end]});
@@ -151,7 +148,6 @@ function evaluateAll() {
     const s2 = timeToMin(document.getElementById(`${day}_s2`).value);
     const w2 = timeToMin(document.getElementById(`${day}_w2`).value);
 
-    // 数値（従来ロジック）
     const d1 = (s1!=null && w1!=null) ? (w1 - s1 + 1440) % 1440 : 0;
     const d2 = (s2!=null && w2!=null) ? (w2 - s2 + 1440) % 1440 : 0;
     const total = d1 + d2;
@@ -167,69 +163,69 @@ function evaluateAll() {
 
     if (total > 0 && mstDay != null) { count++; totals.push(total); msts.push(mstDay); }
 
-    // ===== グラフ描画ロジック =====
-    // 1回目（通常の日跨ぎ処理：後半は翌日の列へ）
+    // 1回目（日跨ぎなら翌日に分割）
     if (d1 > 0){
-      if (w1 > s1){ // 日跨ぎなし
-        addBar(i, s1, w1);
-        addMSTbar(i, (s1 + d1/2) % 1440);
-      } else { // 日跨ぎ
-        addBar(i, s1, 1440);                 // 当日分
-        addBar(nextIndex(i), 0, w1);         // 翌日分
-        const mst1 = (s1 + d1/2) % 1440;
-        // MSTがどちら側にあるかで置き先を決める
-        if (mst1 >= s1) addMSTbar(i, mst1); else addMSTbar(nextIndex(i), mst1);
-      }
+      if (w1 > s1){ addBar(i, s1, w1); addMSTbar(i, (s1 + d1/2) % 1440); }
+      else { addBar(i, s1, 1440); addBar(nextIndex(i), 0, w1);
+             const mst1=(s1+d1/2)%1440; (mst1>=s1)?addMSTbar(i,mst1):addMSTbar(nextIndex(i),mst1); }
     }
-
-    // 2回目（午前4時以降に開始したら翌日の列に置く仕様）
+    // 2回目（4:00以降開始なら翌日の列）
     if (d2 > 0){
       const targetDay = (s2 != null && s2 >= CUTOFF_MIN) ? nextIndex(i) : i;
-
-      if (w2 > s2){ // 日跨ぎなし
-        addBar(targetDay, s2, w2);
-        addMSTbar(targetDay, (s2 + d2/2) % 1440);
-      } else { // 日跨ぎ
-        // 基準日の列→24:00、翌日の列→0:00〜w2
-        addBar(targetDay, s2, 1440);
-        addBar(nextIndex(targetDay), 0, w2);
-        const mst2 = (s2 + d2/2) % 1440;
-        if (mst2 >= s2) addMSTbar(targetDay, mst2); else addMSTbar(nextIndex(targetDay), mst2);
-      }
+      if (w2 > s2){ addBar(targetDay, s2, w2); addMSTbar(targetDay, (s2+d2/2)%1440); }
+      else { addBar(targetDay, s2, 1440); addBar(nextIndex(targetDay), 0, w2);
+             const mst2=(s2+d2/2)%1440; (mst2>=s2)?addMSTbar(targetDay,mst2):addMSTbar(nextIndex(targetDay),mst2); }
     }
   });
 
-  // グラフ描画
-  const ctx = document.getElementById("mstChart").getContext('2d');
+  const ctx = document.getElementById("mstChart");
   Chart.getChart("mstChart")?.destroy();
 
   new Chart(ctx, {
     type: 'bar',
     data: {
-      labels: labels, // 固定7曜日
+      labels, // 7曜日
       datasets: [
-        { label: '睡眠', data: dsSleep, parsing: false, backgroundColor: '#7cc8ff', borderWidth: 0, barPercentage: 0.6, categoryPercentage: 0.9, stack: 'sleep' },
-        { label: 'MST',   type:'bar', data: dsMST, parsing:false, backgroundColor:'#ffffff', borderWidth:0, barPercentage:0.9, categoryPercentage:0.9, stack:'mst', order:10 }
+        {
+          label: '睡眠',
+          data: dsSleep,
+          parsing: { xAxisKey: 'x', yAxisKey: 'y' },
+          backgroundColor: '#7cc8ff',
+          borderWidth: 0,
+          borderRadius: 4
+        },
+        {
+          label: 'MST',
+          type: 'bar',
+          data: dsMST,
+          parsing: { xAxisKey: 'x', yAxisKey: 'y' },
+          backgroundColor: '#ffffff',
+          borderWidth: 0,
+          borderRadius: 2
+        }
       ]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       scales: {
-        x: { stacked: true },
+        x: { type: 'category' },
         y: {
-          stacked: true, min: 0, max: 1440,
+          min: 0, max: 1440,
           ticks: { stepSize: 120, callback: v => minToTime(v) },
-          grid: { color: 'rgba(255,255,255,0.3)' }
+          grid: { color: 'rgba(0,0,0,0.1)' }
         }
       },
       plugins: {
         legend: { display: false },
         tooltip: {
           callbacks: {
-            label: ctx => {
-              const v = ctx.raw?.y;
-              if (Array.isArray(v)) return ` ${minToTime(v[0])}〜${minToTime(v[1])}`;
+            label: (c) => {
+              const v = c.raw?.y;
+              if (Array.isArray(v)) {
+                const dur = v[1]-v[0];
+                return ` ${minToTime(v[0])}〜${minToTime(v[1])}${dur>6?``:``}`;
+              }
               return '';
             }
           }
@@ -254,7 +250,6 @@ function evaluateAll() {
   }
 }
 
-// 初期描画
 evaluateAll();
 </script>
 </body>
