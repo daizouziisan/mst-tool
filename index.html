@@ -2,58 +2,154 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>睡眠記録</title>
   <!-- Chart.js v4 を固定 -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4"></script>
   <style>
-    body { margin: 0; font-family: 'Noto Sans JP', system-ui, -apple-system, sans-serif; background: #dff6fd; color: #000; }
-    .header, .footer { padding: 1rem; text-align: center; }
-    .header-form { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; margin-top: 0.5rem; }
-    .header-form label { display: flex; justify-content: center; align-items: center; gap: 0.5rem; }
-    .header-form input[type="time"], .header-form input[type="number"] {
-      padding: 0.1rem 0.3rem; border-radius: 6px; border: 1px solid #9ac9dc; width: 80px; text-align: center; background:#fff;
+    :root{
+      --bg: #dff6fd;
+      --bg-grad-1: #dff6fd;
+      --bg-grad-2: #cfefff;
+      --card: #f0fbff;
+      --accent: #66ccff;
+      --accent-strong: #19a7ff;
+      --text: #072a38;
+      --muted: #6b8a99;
+      --shadow: 0 8px 24px rgba(0,0,0,.08);
+      --radius: 14px;
     }
-    /* 2列グリッドで縦長を抑える（狭い画面は1列に自動） */
-    #daysContainer { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; max-width: 980px; margin: 0 auto; padding: 0 10px; }
-    .day-block { background: #f0fbff; padding: 1rem; border-radius: 14px; box-shadow: 0 2px 10px rgba(0,0,0,0.06); text-align: center; }
-    .day-title { font-size: 1.1rem; margin-bottom: 0.4rem; color: #0a80c0; }
-    .table-grid { display: grid; grid-template-columns: 1fr 0.3fr 1fr 0.8fr 1fr 1fr; align-items: center; text-align: center; font-size: 0.92rem; margin-bottom: 0.25rem; }
-    .input-cell { display: flex; justify-content: center; }
-    button { background: #66ccff; border: none; padding: 0.45rem 0.9rem; border-radius: 8px; font-size: 0.95rem; cursor: pointer; }
-    button:active { transform: translateY(1px); }
-    canvas { max-width: 100%; margin: 1rem auto; display: block; background: #e9faff; border-radius: 12px; }
-    .stars { margin-top: 0.6rem; text-align: center; }
-    .stars img { width: 60px; margin: 0 6px; }
-    #suggestionResult div { margin: 0.25rem 0; }
-    .center { display: flex; justify-content: center; margin: 12px 0; }
+    *{ box-sizing: border-box; }
+    body{
+      margin:0; color:var(--text);
+      font-family: 'Noto Sans JP', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: linear-gradient(180deg, var(--bg-grad-1), var(--bg-grad-2));
+      min-height:100vh;
+      -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+    }
+    .wrap{ max-width:1100px; margin:0 auto; padding:16px; }
+    .header, .footer{
+      text-align:center; margin:12px auto;
+      background: var(--card);
+      border-radius: calc(var(--radius) + 2px);
+      box-shadow: var(--shadow);
+      padding: 18px 16px;
+    }
+    .header h2{
+      margin: 6px 0 10px; letter-spacing:.03em;
+      font-weight: 700;
+    }
+    .sub{
+      font-size:.92rem; color:var(--muted); margin: -2px 0 6px;
+    }
+    .header-form{
+      display:flex; flex-wrap:wrap; justify-content:center; gap:10px 14px; margin-top:6px;
+    }
+    .header-form label{
+      display:flex; align-items:center; gap:.5rem; background:#fff;
+      border:1px solid #cfe7f1; border-radius:10px; padding:8px 10px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.6);
+    }
+    .header-form input[type="time"], .header-form input[type="number"]{
+      padding:.25rem .45rem; border-radius:8px; border:1px solid #9ac9dc;
+      width:90px; text-align:center; background:#fff; color:var(--text);
+      transition: box-shadow .18s ease, border-color .18s ease;
+    }
+    .header-form input:focus{
+      outline:none; border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(102,204,255,.25);
+    }
+    .btn{
+      background: var(--accent);
+      color:#003347; border:none; padding:.55rem 1rem;
+      border-radius:12px; font-size:.95rem; font-weight:600;
+      cursor:pointer; transition: transform .06s ease, box-shadow .2s ease, background .2s ease;
+      box-shadow: 0 6px 14px rgba(25,167,255,.25);
+    }
+    .btn:hover{ background: var(--accent-strong); }
+    .btn:active{ transform: translateY(1px); }
+    .center{ display:flex; justify-content:center; margin: 10px 0 16px; }
+    /* 日カード */
+    #daysContainer{
+      display:grid; gap:14px;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      margin: 0 auto 8px;
+    }
+    .day-block{
+      background: var(--card); border-radius: var(--radius);
+      box-shadow: var(--shadow); padding: 14px 14px 10px; text-align:center;
+      transition: transform .12s ease, box-shadow .2s ease;
+    }
+    .day-block:hover{ transform: translateY(-1px); box-shadow: 0 10px 28px rgba(0,0,0,.1); }
+    .day-title{ font-size:1.06rem; margin-bottom:.4rem; color:#0a80c0; font-weight:700; }
+    .table-grid{
+      display:grid; grid-template-columns: 1fr .3fr 1fr .8fr 1fr 1fr;
+      align-items:center; text-align:center; font-size:.93rem; margin-bottom:.25rem; gap:4px;
+    }
+    .input-cell{ display:flex; justify-content:center; }
+    .input-cell input[type="time"]{
+      background:#fff; border:1px solid #cfe7f1; border-radius:10px; padding:6px 8px; min-width:110px;
+      transition: border-color .18s ease, box-shadow .18s ease;
+    }
+    .input-cell input[type="time"]:focus{
+      outline:none; border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(102,204,255,.2);
+    }
+    .badge{
+      display:inline-flex; align-items:center; justify-content:center;
+      min-width:44px; padding:2px 8px; border-radius:999px; background:#e8f7ff; color:#0b526e; font-weight:600;
+    }
+    /* グラフ */
+    .chart-card{
+      background: var(--card); border-radius: calc(var(--radius) + 2px);
+      box-shadow: var(--shadow); padding: 14px;
+    }
+    canvas{
+      width:100%; height:auto; display:block; background:#e9faff;
+      border-radius:12px; border: 1px solid #cfe7f1;
+    }
+    .stars{ margin-top:.6rem; text-align:center; }
+    .stars img{ width:60px; margin: 0 6px; vertical-align:middle; filter: drop-shadow(0 2px 2px rgba(0,0,0,.06)); }
+    #suggestionResult div{ margin:.25rem 0; }
+    .footer .btn{ margin: 6px auto 10px; }
+    @media (max-width: 360px){
+      .input-cell input[type="time"]{ min-width:96px; }
+    }
   </style>
 </head>
 <body>
-<div class="header">
-  <h2>睡眠スケジュール</h2>
-  <div class="header-form">
-    <label>就寝予定時刻:<input type="time" id="plannedStart"></label>
-    <label>希望睡眠時間(分):<input type="number" id="desiredDuration" min="0" max="1440" step="1"></label>
-    <label>MST:<input type="time" id="targetMST"></label>
-    <button onclick="suggestSleepTime()">提案</button>
-    <div id="suggestionResult"></div>
-  </div>
-</div>
+  <div class="wrap">
+    <section class="header">
+      <h2>睡眠スケジュール</h2>
+      <div class="sub">16:00 → 翌16:00のスケールで可視化。MSTは白線で表示します。</div>
+      <div class="header-form">
+        <label>就寝予定時刻:<input type="time" id="plannedStart"></label>
+        <label>希望睡眠時間(分):<input type="number" id="desiredDuration" min="0" max="1440" step="1"></label>
+        <label>MST:<input type="time" id="targetMST"></label>
+        <button class="btn" onclick="suggestSleepTime()">提案</button>
+      </div>
+      <div id="suggestionResult"></div>
+    </section>
 
-<div class="footer">
-  <h3>週の統計とグラフ</h3>
-  <button onclick="evaluateAll()">週の評価</button>
-  <div id="weeklyStats"></div>
-  <canvas id="mstChart" height="420"></canvas>
-  <div class="stars" id="starRatings"></div>
-</div>
+    <!-- 入力欄 -->
+    <section id="daysContainer"></section>
+    <!-- ↓ 週の睡眠入力欄の“直下”に移動 -->
+    <div class="center"><button class="btn" id="clearBtn">消去</button></div>
+
+    <section class="footer chart-card">
+      <h3 style="margin:8px 0 6px;">週の統計とグラフ</h3>
+      <button class="btn" onclick="evaluateAll()">週の評価</button>
+      <div id="weeklyStats" style="margin:6px 0 8px; color:#09465d; font-weight:600;"></div>
+      <canvas id="mstChart" height="420"></canvas>
+      <div class="stars" id="starRatings"></div>
+    </section>
+  </div>
 
 <script>
 /* ===== ユーティリティ ===== */
 const weekdays = ["mon","tue","wed","thu","fri","sat","sun"];
 const labelsJP = ["月","火","水","木","金","土","日"];
-const GRAPH_OFFSET = 16 * 60; // グラフは16:00→翌16:00
+const GRAPH_OFFSET = 16 * 60; // 16:00 → 翌16:00
 let chartRef = null;
 
 function focusNext(current, nextId) { if (current.value) document.getElementById(nextId).focus(); }
@@ -66,21 +162,22 @@ const container = document.getElementById("daysContainer");
 weekdays.forEach((day, i) => {
   const block = document.createElement("div");
   block.className = "day-block";
-  block.innerHTML = `<div class='day-title'>${labelsJP[i]}曜日</div>
+  block.innerHTML = `
+    <div class='day-title'>${labelsJP[i]}曜日</div>
     <div class='table-grid'><div>就寝</div><div></div><div>起床</div><div>点数</div><div>合計</div><div>MST</div></div>
     <div class='table-grid'>
       <div class='input-cell'><input type='time' id='${day}_s1' oninput="focusNext(this, '${day}_w1'); evaluateAll();"></div>
       <div>〜</div>
       <div class='input-cell'><input type='time' id='${day}_w1' oninput="evaluateAll();"></div>
-      <div id='${day}_score1'>--点</div><div></div><div></div>
+      <div id='${day}_score1' class='badge'>--点</div><div></div><div></div>
     </div>
     <div class='table-grid'><div></div><div></div><div></div><div></div>
-      <div id='${day}_total'>--h--m</div><div id='${day}_mst'>--:--</div></div>
+      <div id='${day}_total' class='badge'>--h--m</div><div id='${day}_mst' class='badge'>--:--</div></div>
     <div class='table-grid'>
       <div class='input-cell'><input type='time' id='${day}_s2' oninput="focusNext(this, '${day}_w2'); evaluateAll();"></div>
       <div>〜</div>
       <div class='input-cell'><input type='time' id='${day}_w2' oninput="evaluateAll();"></div>
-      <div id='${day}_score2'>--点</div><div></div><div></div>
+      <div id='${day}_score2' class='badge'>--点</div><div></div><div></div>
     </div>`;
   container.appendChild(block);
 });
@@ -96,10 +193,6 @@ document.getElementById("clearBtn").onclick = () => {
   });
   document.getElementById("weeklyStats").innerText = "";
   document.getElementById("starRatings").innerHTML = "";
- <!-- 消去ボタンを常に中央に配置 -->
-<div class="center"><button id="clearBtn">消去</button></div>
-
-<div id="daysContainer"></div>
   // グラフだけ空に更新（枠は残す）
   if (chartRef) {
     chartRef.data.datasets[0].data = [];
@@ -139,6 +232,7 @@ function suggestSleepTime() {
 }
 
 /* ===== グラフ（画像風） ===== */
+// MST白線プラグイン
 const mstPlugin = {
   id:'mstLines',
   afterDatasetsDraw(chart){
@@ -162,7 +256,7 @@ function buildOrUpdateChart(segPrimary, segSecondary, mstLines){
   const cfg = {
     type:'bar',
     data:{
-      labels: labelsJP, // 常に週の枠を表示
+      labels: labelsJP, // 常に週枠を表示
       datasets:[
         {label:'睡眠（MST側）', data:segPrimary, parsing:{xAxisKey:'x', yAxisKey:'y'},
          borderRadius:8, borderSkipped:false, backgroundColor:'#66ccff', barPercentage:.56, categoryPercentage:.72},
@@ -203,8 +297,8 @@ function buildOrUpdateChart(segPrimary, segSecondary, mstLines){
 /* ===== 再計算＆描画 ===== */
 function evaluateAll() {
   let count = 0, totals = [], msts = [];
-  const segPrimary = [];      // MSTを含む帯（濃い）
-  const segSecondary = [];    // MSTを含まない帯（薄い）
+  const segPrimary = [];      // MSTを含む帯（濃）
+  const segSecondary = [];    // MSTを含まない帯（薄）
   const mstLines = [];        // {dayIndex, coord}
 
   weekdays.forEach((day, i) => {
@@ -224,7 +318,7 @@ function evaluateAll() {
     document.getElementById(`${day}_score1`).innerText = `${score1}点`;
     document.getElementById(`${day}_score2`).innerText = `${score2}点`;
 
-    // 長い方のMST（もう片方は薄色で描く）
+    // 長い方のMST（もう片方は薄色）
     const useFirst = (d1 >= d2);
     const use = useFirst ? {s:s1, d:d1} : {s:s2, d:d2};
     const mst = (use.d>0 && use.s!=null) ? (use.s + use.d/2) % 1440 : null;
@@ -235,7 +329,7 @@ function evaluateAll() {
       mstLines.push({ dayIndex:i, coord: toGraphCoord(mst) });
     }
 
-    // 帯を作成（16:00境界で分割して翌日にまたがせる）
+    // 帯作成（16:00境界で分割 → 翌日に跨がせる）
     function pushSeg(startMin, durMin, primary){
       if(startMin==null || durMin<=0) return;
       const endMin = (startMin + durMin) % 1440;
@@ -254,7 +348,7 @@ function evaluateAll() {
   // グラフ更新
   buildOrUpdateChart(segPrimary, segSecondary, mstLines);
 
-  // ★週評価（3日以上で表示）
+  // 週評価（3日以上で表示）
   const starBox = document.getElementById("starRatings");
   const statBox = document.getElementById("weeklyStats");
   if (count >= 3) {
