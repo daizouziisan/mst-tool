@@ -43,19 +43,16 @@
 
 <div class="footer">
   <h3>週の統計とグラフ</h3>
-  <button onclick="evaluateAll()">週の評価</button>
   <div id="weeklyStats"></div>
   <canvas id="sleepChart" height="420"></canvas>
   <div class="stars" id="starRatings"></div>
 </div>
 
 <script>
-/* ================= 基本設定 ================= */
 const weekdays = ["mon","tue","wed","thu","fri","sat","sun"];
 const labelsJP  = ["月","火","水","木","金","土","日"];
-const FOUR_AM = 240; // 4:00 (分)
+const FOUR_AM = 240; // 4:00(分)
 
-/* ------------- ユーティリティ ------------- */
 function focusNext(current, nextId){ if(current.value) document.getElementById(nextId).focus(); }
 function timeToMin(t){ if(!t) return null; const [h,m] = t.split(":").map(Number); return h*60+m; }
 function minToTime(min){
@@ -65,12 +62,9 @@ function minToTime(min){
   const m = Math.floor(min%60).toString().padStart(2,"0");
   return `${h}:${m}`;
 }
-/** 4:00基準の“その日の0〜1440分”へ変換 */
 function toDayOffsetMinutes(min){ return (min - FOUR_AM + 1440) % 1440; }
-/** 区間長(分)（終了が開始より小さい時は日またぎ） */
 function spanMinutes(s,w){ return (w - s + 1440) % 1440; }
 
-/* ------------- 入力UI生成 ------------- */
 const container = document.getElementById("daysContainer");
 weekdays.forEach((day,i)=>{
   const block = document.createElement("div");
@@ -95,7 +89,6 @@ weekdays.forEach((day,i)=>{
     </div>`;
   container.appendChild(block);
 });
-/* 週消去ボタン（入力欄の下に配置） */
 const clearBtn = document.createElement("button");
 clearBtn.textContent = "消去";
 clearBtn.onclick = ()=>{
@@ -112,16 +105,13 @@ clearBtn.onclick = ()=>{
 };
 container.appendChild(clearBtn);
 
-/* ------------- MST 提案 ------------- */
 function suggestSleepTime(){
   const start = timeToMin(document.getElementById("plannedStart").value);
   const duration = parseInt(document.getElementById("desiredDuration").value);
   const targetMST = timeToMin(document.getElementById("targetMST").value);
   const resultDiv = document.getElementById("suggestionResult");
   resultDiv.innerHTML="";
-
   if(start==null || isNaN(duration) || targetMST==null){ resultDiv.innerText="入力が不完全です。"; return; }
-
   const candidates=[];
   for(let i=0;i<=180;i+=5){
     const s=(start+i)%1440;
@@ -141,58 +131,35 @@ function suggestSleepTime(){
   });
 }
 
-/* ------------- 評価 & グラフ ------------- */
-/**
- * 入力→セッション配列化（4:00区切り＆“2本目が4:00以降なら翌日扱い”）
- * 返り値:
- *  - segments: [{day,x,y:[start,end]}]（日をまたぐ場合は自動で分割）
- *  - perDay: { total:分, mst:分|null } …各日の「長い方の睡眠」のMST
- */
 function buildWeekData(){
   const segments=[];
   const perDay = Array.from({length:7},()=>({total:0,mst:null,longest:0}));
-
   function pushSession(baseDay, s, w){
     if(s==null || w==null) return;
-
     const dur = spanMinutes(s,w);
     if(dur<=0) return;
-
-    // その日の“4:00基準”オフセット
     let startOff = toDayOffsetMinutes(s);
     let endOff   = toDayOffsetMinutes(w);
-
-    // 同日内 or 日またぎで分割
     if(endOff>startOff){
       segments.push({day:baseDay, x:labelsJP[baseDay], y:[startOff,endOff]});
     }else{
-      // その日の残り
       segments.push({day:baseDay, x:labelsJP[baseDay], y:[startOff,1440]});
-      // 翌日の頭
       const next = (baseDay+1)%7;
       segments.push({day:next, x:labelsJP[next], y:[0,endOff]});
     }
-
-    // “その日”の長い方の睡眠でMSTを更新（MSTは開始日の属する日に置く）
     const mst = (s + dur/2) % 1440;
     if(dur > perDay[baseDay].longest){
       perDay[baseDay].longest = dur;
       perDay[baseDay].mst = mst;
     }
-    // 合計は同一日の合算（分割分は雑に合算でOK：24h内で収まる）
     perDay[baseDay].total += dur;
   }
-
   weekdays.forEach((d,idx)=>{
     const s1=timeToMin(document.getElementById(`${d}_s1`).value);
     const w1=timeToMin(document.getElementById(`${d}_w1`).value);
     const s2=timeToMin(document.getElementById(`${d}_s2`).value);
     const w2=timeToMin(document.getElementById(`${d}_w2`).value);
-
-    // 1本目：その曜日に属する
     pushSession(idx, s1, w1);
-
-    // 2本目：開始が4:00以降なら翌日に属させて描画（ご要望仕様）
     if(s2!=null && s2>=FOUR_AM){
       const next = (idx+1)%7;
       pushSession(next, s2, w2);
@@ -200,17 +167,13 @@ function buildWeekData(){
       pushSession(idx, s2, w2);
     }
   });
-
-  // 表示用に total と mst のない日は null に
   perDay.forEach(d=>{
     if(d.longest===0){ d.mst=null; d.total=0; }
   });
-
   return {segments, perDay};
 }
 
 function evaluateAll(){
-  // スコア・日別合計/MSTのテキスト更新（入力側の曜日で表示）
   weekdays.forEach((day)=>{
     const s1=timeToMin(document.getElementById(`${day}_s1`).value);
     const w1=timeToMin(document.getElementById(`${day}_w1`).value);
@@ -218,10 +181,8 @@ function evaluateAll(){
     const w2=timeToMin(document.getElementById(`${day}_w2`).value);
     const d1=(s1!=null && w1!=null)? spanMinutes(s1,w1):0;
     const d2=(s2!=null && w2!=null)? spanMinutes(s2,w2):0;
-
     const score1 = d1>0 ? Math.min(100, Math.round(d1/5.1)) : 0;
     const score2 = d2>0 ? Math.min(100 - score1, Math.round(d2/5.1)) : 0;
-
     document.getElementById(`${day}_score1`).innerText = d1>0? `${score1}点`:"--点";
     document.getElementById(`${day}_score2`).innerText = (d2>0 || (s2||w2))? `${score2}点`:"--点";
     const totalDisp = d1+d2;
@@ -229,17 +190,10 @@ function evaluateAll(){
     const mstDisp = (d1>=d2 && d1>0)? (s1+d1/2)%1440 : (d2>0? (s2+d2/2)%1440 : null);
     document.getElementById(`${day}_mst`).innerText = mstDisp!=null? minToTime(mstDisp):"--:--";
   });
-
-  // === グラフ用データ作成（略）で segments, perDay ができたあと ===
-
-  const cv = document.getElementById("sleepChart");
-  const ctx = cv.getContext("2d");
-  const old = Chart.getChart(cv);
-  if (old) old.destroy();
-
-  // データが1本も無ければグラフを消して終わり
+  const {segments, perDay} = buildWeekData();
+  const ctx = document.getElementById("sleepChart").getContext("2d");
+  Chart.getChart("sleepChart")?.destroy();
   if (!segments.length) return;
-
   const sleepDataset = {
     type: "bar",
     label: "睡眠",
@@ -247,89 +201,67 @@ function evaluateAll(){
     borderRadius: 6,
     borderSkipped: false,
     backgroundColor: "#99ddff",
-    // ←これが肝：x/y のキーを明示
     parsing: { xAxisKey: "x", yAxisKey: "y" },
   };
-
-  const mstByLabel = labelsJP.map((lab,i)=>
-    perDay[i].mst!=null ? { x: lab, y: toDayOffsetMinutes(perDay[i].mst) } : null
-  );
-
-  const chart = new Chart(ctx, {
-    type: "bar",
-    data: { labels: labelsJP, datasets: [sleepDataset] },
-    options: {
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label(ctx) {
-              const v = ctx.raw?.y;
-              if (Array.isArray(v)) {
-                return `${minToTime(v[0]+FOUR_AM)}〜${minToTime(v[1]+FOUR_AM)}`;
-              }
-              return "";
-            }
+  const chart = new Chart(ctx,{
+    type:"bar",
+    data:{ labels: labelsJP, datasets:[sleepDataset] },
+    options:{
+      maintainAspectRatio:false,
+      plugins:{ legend:{display:false},
+        tooltip:{ callbacks:{ label(ctx){
+          const v = ctx.raw?.y;
+          if(Array.isArray(v)){
+            return `${minToTime(v[0]+FOUR_AM)}〜${minToTime(v[1]+FOUR_AM)}`;
           }
-        }
+          return '';
+        }}}
       },
-      scales: {
-        x: { stacked: true },
-        y: {
-          min: 0, max: 1440, stacked: true,
-          ticks: { callback: v => minToTime(v + FOUR_AM) }
+      scales:{
+        x:{ stacked:true },
+        y:{
+          min:0, max:1440, stacked:true,
+          ticks:{ callback:v=>minToTime(v + FOUR_AM) }
         }
       }
     },
-    plugins: [{
-  id: "mst-lines",
-  afterDatasetsDraw(c) {
-    const {ctx, scales:{x,y}} = c;
-    ctx.save();
-    ctx.lineWidth = 4;
-    ctx.strokeStyle = "#ffffff";
-
-    // ← 幅の計算を安全に（全体幅÷カテゴリ数）
-    const catWidth = (x.right - x.left) / labelsJP.length;
-    const half = catWidth * 0.45;
-
-    labelsJP.forEach((lab, idx) => {
-      const mst = perDay[idx].mst;
-      if (mst == null) return;
-      const yPix = y.getPixelForValue(toDayOffsetMinutes(mst));
-      const xCenter = x.getPixelForValue(lab);
-      ctx.beginPath();
-      ctx.moveTo(xCenter - half, yPix);
-      ctx.lineTo(xCenter + half, yPix);
-      ctx.stroke();
-    });
-    ctx.restore();
-  }
-}]
-
-  // 週評価（データが3日以上ある日だけ対象）
+    plugins:[{
+      id:"mst-lines",
+      afterDatasetsDraw(c){
+        const {ctx, scales:{x,y}} = c;
+        ctx.save();
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = "#ffffff";
+        const catWidth = (x.right - x.left) / labelsJP.length;
+        const half = catWidth * 0.45;
+        labelsJP.forEach((lab, idx)=>{
+          const mst = perDay[idx].mst;
+          if (mst == null) return;
+          const yPix = y.getPixelForValue(toDayOffsetMinutes(mst));
+          const xCenter = x.getPixelForValue(lab);
+          ctx.beginPath();
+          ctx.moveTo(xCenter - half, yPix);
+          ctx.lineTo(xCenter + half, yPix);
+          ctx.stroke();
+        });
+        ctx.restore();
+      }
+    }]
+  });
   const usedTotals = [], usedMSTs=[];
   perDay.forEach(d=>{
     if(d.total>0 && d.mst!=null){ usedTotals.push(d.total); usedMSTs.push(d.mst); }
   });
-
   if(usedTotals.length>=3){
     const diffT = Math.max(...usedTotals) - Math.min(...usedTotals);
-    // MST差は角度差（循環）で評価：各MSTを4:00基準にしてから直線距離→ただし循環最小に正規化
-    const norm = m => toDayOffsetMinutes(m);
-    const mNorm = usedMSTs.map(norm);
-    const diffRaw = Math.max(...mNorm) - Math.min(...mNorm);
-    const diffM = diffRaw; // 0..1440内
-
+    const mNorm = usedMSTs.map(toDayOffsetMinutes);
+    const diffM = Math.max(...mNorm) - Math.min(...mNorm);
     const starT = diffT <= 120 ? 3 : diffT <= 180 ? 2 : 1;
     const starM = diffM <= 60 ? 3 : diffM <= 90 ? 2 : 1;
-
     document.getElementById("weeklyStats").innerText =
       `睡眠時間差:${(diffT/60).toFixed(1)}h  MST差:${(diffM/60).toFixed(1)}h`;
     document.getElementById("starRatings").innerHTML =
-      `合計: <img src="images/star${starT}.png" alt="starT">　
-       MST: <img src="images/star${starM}.png" alt="starM">`;
+      `合計: <img src="images/star${starT}.png"> MST: <img src="images/star${starM}.png">`;
   }else{
     document.getElementById("weeklyStats").innerText="";
     document.getElementById("starRatings").innerHTML="";
