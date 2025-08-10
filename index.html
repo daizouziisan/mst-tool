@@ -230,66 +230,75 @@ function evaluateAll(){
     document.getElementById(`${day}_mst`).innerText = mstDisp!=null? minToTime(mstDisp):"--:--";
   });
 
-  // グラフ用データ作成（4:00基準＋分割＋2本目の4:00以降→翌日扱い）
-  const {segments, perDay} = buildWeekData();
+  // === グラフ用データ作成（略）で segments, perDay ができたあと ===
 
-  // Chart.js 再生成（浮動バー + MST白線）
-  const ctx = document.getElementById("sleepChart").getContext("2d");
-  Chart.getChart("sleepChart")?.destroy();
+  const cv = document.getElementById("sleepChart");
+  const ctx = cv.getContext("2d");
+  const old = Chart.getChart(cv);
+  if (old) old.destroy();
 
-  // x: 曜日, y: 0..1440 (4:00→翌4:00)
+  // データが1本も無ければグラフを消して終わり
+  if (!segments.length) return;
+
   const sleepDataset = {
     type: "bar",
     label: "睡眠",
-    data: segments.map(seg=>({x: seg.x, y: [seg.y[0], seg.y[1]]})),
+    data: segments.map(seg => ({ x: seg.x, y: [seg.y[0], seg.y[1]] })),
     borderRadius: 6,
     borderSkipped: false,
+    backgroundColor: "#99ddff",
+    // ←これが肝：x/y のキーを明示
+    parsing: { xAxisKey: "x", yAxisKey: "y" },
   };
 
-  // MST（白い横棒）はプラグインで描画
-  const mstByLabel = labelsJP.map((lab,i)=> perDay[i].mst!=null ? {x: lab, y: toDayOffsetMinutes(perDay[i].mst)} : null);
+  const mstByLabel = labelsJP.map((lab,i)=>
+    perDay[i].mst!=null ? { x: lab, y: toDayOffsetMinutes(perDay[i].mst) } : null
+  );
 
-  const chart = new Chart(ctx,{
-    type:"bar",
-    data:{ labels: labelsJP, datasets:[sleepDataset] },
-    options:{
-      maintainAspectRatio:false,
-      plugins:{ legend:{display:false}, tooltip:{
-        callbacks:{
-          label(ctx){
-            const v = ctx.raw?.y;
-            if(Array.isArray(v)){
-              return `${minToTime(v[0]+FOUR_AM)}〜${minToTime(v[1]+FOUR_AM)}`;
+  const chart = new Chart(ctx, {
+    type: "bar",
+    data: { labels: labelsJP, datasets: [sleepDataset] },
+    options: {
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label(ctx) {
+              const v = ctx.raw?.y;
+              if (Array.isArray(v)) {
+                return `${minToTime(v[0]+FOUR_AM)}〜${minToTime(v[1]+FOUR_AM)}`;
+              }
+              return "";
             }
-            return '';
           }
         }
-      }},
-      scales:{
-        x:{ stacked:true },
-        y:{
-          min:0, max:1440, stacked:true,
-          ticks:{ callback:v=>minToTime(v+FOUR_AM) }
+      },
+      scales: {
+        x: { stacked: true },
+        y: {
+          min: 0, max: 1440, stacked: true,
+          ticks: { callback: v => minToTime(v + FOUR_AM) }
         }
       }
     },
-    plugins:[{
-      id:"mst-lines",
-      afterDatasetsDraw(c, args, pluginOpts){
-        const {ctx, chartArea, scales:{x,y}} = c;
+    plugins: [{
+      id: "mst-lines",
+      afterDatasetsDraw(c) {
+        const {ctx, scales:{x,y}} = c;
         ctx.save();
         ctx.lineWidth = 4;
         ctx.strokeStyle = "#ffffff";
-        labelsJP.forEach((lab, idx)=>{
-          const point = mstByLabel[idx];
-          if(!point) return;
-          const yPix = y.getPixelForValue(point.y);
+        labelsJP.forEach((lab, idx) => {
+          const p = mstByLabel[idx];
+          if (!p) return;
+          const yPix = y.getPixelForValue(p.y);
+          // 横棒の長さはカテゴリ幅の9割
           const xCenter = x.getPixelForValue(lab);
-          const barW = x.getPixelForValue(lab) - x.left; // category half幅を概算
-          const half = Math.min(Math.abs(barW)*0.45, 40);
+          const w = (x.getPixelForTick(idx+1) - x.getPixelForTick(idx)) * 0.45;
           ctx.beginPath();
-          ctx.moveTo(xCenter - half, yPix);
-          ctx.lineTo(xCenter + half, yPix);
+          ctx.moveTo(xCenter - w, yPix);
+          ctx.lineTo(xCenter + w, yPix);
           ctx.stroke();
         });
         ctx.restore();
