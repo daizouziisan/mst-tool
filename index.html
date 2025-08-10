@@ -43,8 +43,8 @@
 <div class="footer">
   <h3>週の統計とグラフ</h3>
   <div id="weeklyStats"></div>
-  <!-- コンパクト表示用に高さは控えめ -->
-  <canvas id="sleepChart" height="300"></canvas>
+  <!-- コンパクト表示 -->
+  <canvas id="sleepChart" height="280"></canvas>
   <div class="stars" id="starRatings"></div>
 </div>
 
@@ -53,9 +53,7 @@
 const weekdays = ["mon","tue","wed","thu","fri","sat","sun"];
 const labelsJP  = ["月","火","水","木","金","土","日"];
 const FOUR_AM = 240; // 4:00(分)
-
-// アニメ完全停止（保険）
-Chart.defaults.animation = false;
+Chart.defaults.animation = false;  // アニメ完全OFF
 
 /* ====== ユーティリティ ====== */
 function focusNext(current, nextId){ if(current.value) document.getElementById(nextId).focus(); }
@@ -95,7 +93,6 @@ weekdays.forEach((day,i)=>{
     </div>`;
   container.appendChild(block);
 });
-/* 週消去ボタン */
 const clearBtn = document.createElement("button");
 clearBtn.textContent = "消去";
 clearBtn.onclick = ()=>{
@@ -108,8 +105,7 @@ clearBtn.onclick = ()=>{
   });
   document.getElementById("weeklyStats").innerText="";
   document.getElementById("starRatings").innerHTML="";
-  // グラフは空データで残す（消さない）→チラつき防止
-  updateChart([], Array.from({length:7},()=>({mst:null})));
+  updateChart([], [], Array.from({length:7},()=>({mst:null})));
 };
 container.appendChild(clearBtn);
 
@@ -140,54 +136,52 @@ function suggestSleepTime(){
   });
 }
 
-/* ====== データ整形 ====== */
+/* ====== データ整形（1本目/2本目を別データセットに） ====== */
 function buildWeekData(){
-  const segments=[];
+  const seg1=[];   // 1本目用
+  const seg2=[];   // 2本目用（色を変える）
   const perDay = Array.from({length:7},()=>({total:0,mst:null,longest:0}));
-  function pushSession(baseDay, s, w){
+
+  function addSegment(arr, baseDay, s, w){
     if(s==null || w==null) return;
     const dur = spanMinutes(s,w);
     if(dur<=0) return;
     let startOff = toDayOffsetMinutes(s);
     let endOff   = toDayOffsetMinutes(w);
     if(endOff>startOff){
-      segments.push({day:baseDay, x:labelsJP[baseDay], y:[startOff,endOff]});
+      arr.push({x:labelsJP[baseDay], y:[startOff,endOff]});
     }else{
-      segments.push({day:baseDay, x:labelsJP[baseDay], y:[startOff,1440]});
-      const next = (baseDay+1)%7;
-      segments.push({day:next, x:labelsJP[next], y:[0,endOff]});
+      arr.push({x:labelsJP[baseDay], y:[startOff,1440]});
+      const next=(baseDay+1)%7;
+      arr.push({x:labelsJP[next], y:[0,endOff]});
     }
+    // MST と合計（開始日の属する日に計上）
     const mst = (s + dur/2) % 1440;
-    if(dur > perDay[baseDay].longest){
-      perDay[baseDay].longest = dur;
-      perDay[baseDay].mst = mst;
-    }
+    if(dur > perDay[baseDay].longest){ perDay[baseDay].longest = dur; perDay[baseDay].mst = mst; }
     perDay[baseDay].total += dur;
   }
+
   weekdays.forEach((d,idx)=>{
     const s1=timeToMin(document.getElementById(`${d}_s1`).value);
     const w1=timeToMin(document.getElementById(`${d}_w1`).value);
     const s2=timeToMin(document.getElementById(`${d}_s2`).value);
     const w2=timeToMin(document.getElementById(`${d}_w2`).value);
-    // 1本目はその日
-    pushSession(idx, s1, w1);
-    // 2本目：開始が4:00以降なら翌日扱い
-    if(s2!=null && s2>=FOUR_AM){
-      const next = (idx+1)%7;
-      pushSession(next, s2, w2);
-    }else{
-      pushSession(idx, s2, w2);
-    }
+
+    addSegment(seg1, idx, s1, w1);
+    // 2本目は開始が4:00以降なら翌日に属させる
+    if(s2!=null && s2>=FOUR_AM){ addSegment(seg2, (idx+1)%7, s2, w2); }
+    else                        { addSegment(seg2, idx, s2, w2); }
   });
-  perDay.forEach(d=>{
-    if(d.longest===0){ d.mst=null; d.total=0; }
-  });
-  return {segments, perDay};
+
+  // 空日の正規化
+  perDay.forEach(d=>{ if(d.longest===0){ d.mst=null; d.total=0; }});
+
+  return {seg1, seg2, perDay};
 }
 
 /* ====== スコア表示 & グラフ更新 ====== */
 function evaluateAll(){
-  // テキスト側
+  // テキスト
   weekdays.forEach((day)=>{
     const s1=timeToMin(document.getElementById(`${day}_s1`).value);
     const w1=timeToMin(document.getElementById(`${day}_w1`).value);
@@ -205,19 +199,19 @@ function evaluateAll(){
     document.getElementById(`${day}_mst`).innerText = mstDisp!=null? minToTime(mstDisp):"--:--";
   });
 
-  // グラフ側
-  const {segments, perDay} = buildWeekData();
-  updateChart(segments, perDay);
+  // グラフ
+  const {seg1, seg2, perDay} = buildWeekData();
+  updateChart(seg1, seg2, perDay);
 
-  // 週評価
-  const usedTotals = [], usedMSTs=[];
-  perDay.forEach(d=>{
-    if(d.total>0 && d.mst!=null){ usedTotals.push(d.total); usedMSTs.push(d.mst); }
-  });
+  // ★評価
+  const usedTotals=[], usedMSTs=[];
+  perDay.forEach(d=>{ if(d.total>0 && d.mst!=null){ usedTotals.push(d.total); usedMSTs.push(d.mst); }});
   if(usedTotals.length>=3){
     const diffT = Math.max(...usedTotals) - Math.min(...usedTotals);
-    const mNorm = usedMSTs.map(toDayOffsetMinutes);
-    const diffM = Math.max(...mNorm) - Math.min(...mNorm);
+    const diffM = (()=>{
+      const m = usedMSTs.map(toDayOffsetMinutes);
+      return Math.max(...m) - Math.min(...m);
+    })();
     const starT = diffT <= 120 ? 3 : diffT <= 180 ? 2 : 1;
     const starM = diffM <= 60 ? 3 : diffM <= 90 ? 2 : 1;
     document.getElementById("weeklyStats").innerText =
@@ -230,14 +224,13 @@ function evaluateAll(){
   }
 }
 
-/* ====== グラフ作成・更新（アニメ完全無し＆再生成しない） ====== */
-let chartRef = null;
+/* ====== グラフ作成・更新（再生成なし／アニメなし／細いバー） ====== */
+let chartRef=null;
 let perDayCache = Array.from({length:7},()=>({mst:null}));
 
 function initChart(){
   const ctx = document.getElementById("sleepChart").getContext("2d");
 
-  // MST白線プラグイン（アニメ無し）
   const mstPlugin = {
     id:"mst-lines",
     afterDatasetsDraw(c){
@@ -246,10 +239,10 @@ function initChart(){
       ctx.lineWidth = 4;
       ctx.strokeStyle = "#ffffff";
       const catWidth = (x.right - x.left) / labelsJP.length;
-      const half = catWidth * 0.30; // 短め
+      const half = catWidth * 0.28; // 白線は短め
       labelsJP.forEach((lab, idx)=>{
         const mst = perDayCache[idx]?.mst ?? null;
-        if (mst == null) return;
+        if(mst==null) return;
         const yPix = y.getPixelForValue(toDayOffsetMinutes(mst));
         const xCenter = x.getPixelForValue(lab);
         ctx.beginPath();
@@ -265,24 +258,37 @@ function initChart(){
     type:"bar",
     data:{
       labels: labelsJP,
-      datasets:[{
-        type:"bar",
-        label:"睡眠",
-        data: [], // 初期は空
-        backgroundColor:"#99ddff",
-        borderRadius:6,
-        borderSkipped:false,
-        parsing:{ xAxisKey:"x", yAxisKey:"y" },
-        categoryPercentage:0.45,
-        barPercentage:0.55,
-        maxBarThickness:18
-      }]
+      datasets:[
+        { // 1本目（下段の明るめ色想定）
+          type:"bar",
+          label:"睡眠(1本目)",
+          data:[],
+          backgroundColor:"#7fe3ff",
+          borderRadius:6,
+          borderSkipped:false,
+          parsing:{ xAxisKey:"x", yAxisKey:"y" },
+          categoryPercentage:0.34,  // 細い
+          barPercentage:0.55,
+          maxBarThickness:12
+        },
+        { // 2本目（上段の淡色想定）
+          type:"bar",
+          label:"睡眠(2本目)",
+          data:[],
+          backgroundColor:"#bfefff",
+          borderRadius:6,
+          borderSkipped:false,
+          parsing:{ xAxisKey:"x", yAxisKey:"y" },
+          categoryPercentage:0.34,
+          barPercentage:0.55,
+          maxBarThickness:12
+        }
+      ]
     },
     options:{
       responsive:true,
       maintainAspectRatio:false,
-      animation:false,             // ← アニメ無効
-      transitions:{ active:{ animation:{ duration:0 } } },
+      animation:false,
       plugins:{
         legend:{ display:false },
         tooltip:{ callbacks:{ label(ctx){
@@ -297,7 +303,7 @@ function initChart(){
         x:{ stacked:true, ticks:{ maxRotation:0 } },
         y:{
           min:0, max:1440, stacked:true,
-          ticks:{ callback:v=>minToTime(v + FOUR_AM), stepSize:120 }
+          ticks:{ callback:v=>minToTime(v + FOUR_AM), stepSize:120 } // 2時間ごと
         }
       },
       layout:{ padding:{ top:8, right:8, bottom:8, left:8 } }
@@ -306,19 +312,16 @@ function initChart(){
   });
 }
 
-function updateChart(segments, perDay){
+function updateChart(seg1, seg2, perDay){
   if(!chartRef) initChart();
-
-  // データ更新（伸びアニメなし）
-  chartRef.data.datasets[0].data = segments.map(seg => ({ x: seg.x, y: [seg.y[0], seg.y[1]] }));
-  perDayCache = perDay; // MST描画用キャッシュ更新
-
-  // 空でも軸を残して即時反映
-  chartRef.update('none');
+  chartRef.data.datasets[0].data = seg1.map(s=>({x:s.x,y:s.y}));
+  chartRef.data.datasets[1].data = seg2.map(s=>({x:s.x,y:s.y}));
+  perDayCache = perDay;
+  chartRef.update('none'); // アニメなしで即反映
 }
 
-/* ====== 初期化（空の軸を出しておく） ====== */
-updateChart([], perDayCache);
+/* ====== 初期化（空軸だけ先に出す） ====== */
+updateChart([], [], perDayCache);
 </script>
 </body>
 </html>
