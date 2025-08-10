@@ -11,8 +11,7 @@
     .header-form { display:flex; flex-direction:column; align-items:center; gap:0.5rem; margin-top:0.5rem; }
     .header-form label { display:flex; align-items:center; gap:0.5rem; }
     .header-form input[type="time"], .header-form input[type="number"]{
-      padding:0.15rem; border-radius:6px; border:1px solid #a7c9d8; width:80px; text-align:center;
-      background:#fff;
+      padding:0.15rem; border-radius:6px; border:1px solid #a7c9d8; width:80px; text-align:center; background:#fff;
     }
     .day-block{ margin:1rem auto; background:#f0fbff; padding:1rem; border-radius:12px;
       box-shadow:0 6px 16px rgba(0,0,0,.08); max-width:460px; text-align:center; }
@@ -44,15 +43,21 @@
 <div class="footer">
   <h3>週の統計とグラフ</h3>
   <div id="weeklyStats"></div>
+  <!-- コンパクト表示用に高さは控えめ -->
   <canvas id="sleepChart" height="300"></canvas>
   <div class="stars" id="starRatings"></div>
 </div>
 
 <script>
+/* ====== 基本定義 ====== */
 const weekdays = ["mon","tue","wed","thu","fri","sat","sun"];
 const labelsJP  = ["月","火","水","木","金","土","日"];
 const FOUR_AM = 240; // 4:00(分)
 
+// アニメ完全停止（保険）
+Chart.defaults.animation = false;
+
+/* ====== ユーティリティ ====== */
 function focusNext(current, nextId){ if(current.value) document.getElementById(nextId).focus(); }
 function timeToMin(t){ if(!t) return null; const [h,m] = t.split(":").map(Number); return h*60+m; }
 function minToTime(min){
@@ -65,6 +70,7 @@ function minToTime(min){
 function toDayOffsetMinutes(min){ return (min - FOUR_AM + 1440) % 1440; }
 function spanMinutes(s,w){ return (w - s + 1440) % 1440; }
 
+/* ====== 入力UI生成 ====== */
 const container = document.getElementById("daysContainer");
 weekdays.forEach((day,i)=>{
   const block = document.createElement("div");
@@ -89,6 +95,7 @@ weekdays.forEach((day,i)=>{
     </div>`;
   container.appendChild(block);
 });
+/* 週消去ボタン */
 const clearBtn = document.createElement("button");
 clearBtn.textContent = "消去";
 clearBtn.onclick = ()=>{
@@ -101,10 +108,12 @@ clearBtn.onclick = ()=>{
   });
   document.getElementById("weeklyStats").innerText="";
   document.getElementById("starRatings").innerHTML="";
-  Chart.getChart("sleepChart")?.destroy();
+  // グラフは空データで残す（消さない）→チラつき防止
+  updateChart([], Array.from({length:7},()=>({mst:null})));
 };
 container.appendChild(clearBtn);
 
+/* ====== MST提案 ====== */
 function suggestSleepTime(){
   const start = timeToMin(document.getElementById("plannedStart").value);
   const duration = parseInt(document.getElementById("desiredDuration").value);
@@ -131,6 +140,7 @@ function suggestSleepTime(){
   });
 }
 
+/* ====== データ整形 ====== */
 function buildWeekData(){
   const segments=[];
   const perDay = Array.from({length:7},()=>({total:0,mst:null,longest:0}));
@@ -159,7 +169,9 @@ function buildWeekData(){
     const w1=timeToMin(document.getElementById(`${d}_w1`).value);
     const s2=timeToMin(document.getElementById(`${d}_s2`).value);
     const w2=timeToMin(document.getElementById(`${d}_w2`).value);
+    // 1本目はその日
     pushSession(idx, s1, w1);
+    // 2本目：開始が4:00以降なら翌日扱い
     if(s2!=null && s2>=FOUR_AM){
       const next = (idx+1)%7;
       pushSession(next, s2, w2);
@@ -173,7 +185,9 @@ function buildWeekData(){
   return {segments, perDay};
 }
 
+/* ====== スコア表示 & グラフ更新 ====== */
 function evaluateAll(){
+  // テキスト側
   weekdays.forEach((day)=>{
     const s1=timeToMin(document.getElementById(`${day}_s1`).value);
     const w1=timeToMin(document.getElementById(`${day}_w1`).value);
@@ -190,68 +204,12 @@ function evaluateAll(){
     const mstDisp = (d1>=d2 && d1>0)? (s1+d1/2)%1440 : (d2>0? (s2+d2/2)%1440 : null);
     document.getElementById(`${day}_mst`).innerText = mstDisp!=null? minToTime(mstDisp):"--:--";
   });
+
+  // グラフ側
   const {segments, perDay} = buildWeekData();
-  const ctx = document.getElementById("sleepChart").getContext("2d");
-  Chart.getChart("sleepChart")?.destroy();
-  if (!segments.length) return;
-  const sleepDataset = {
-    type: "bar",
-    label: "睡眠",
-    data: segments.map(seg => ({ x: seg.x, y: [seg.y[0], seg.y[1]] })),
-    backgroundColor: "#99ddff",
-    borderRadius: 6,
-    borderSkipped: false,
-    parsing: { xAxisKey: "x", yAxisKey: "y" },
-    categoryPercentage: 0.45,
-    barPercentage: 0.55,
-    maxBarThickness: 18
-  };
-  const chart = new Chart(ctx,{
-    type:"bar",
-    data:{ labels: labelsJP, datasets:[sleepDataset] },
-    options:{
-      maintainAspectRatio:false,
-      plugins:{ legend:{display:false},
-        tooltip:{ callbacks:{ label(ctx){
-          const v = ctx.raw?.y;
-          if(Array.isArray(v)){
-            return `${minToTime(v[0]+FOUR_AM)}〜${minToTime(v[1]+FOUR_AM)}`;
-          }
-          return '';
-        }}}
-      },
-      scales:{
-        x:{ stacked:true, ticks:{ maxRotation:0 } },
-        y:{
-          min:0, max:1440, stacked:true,
-          ticks:{ callback:v=>minToTime(v + FOUR_AM), stepSize:120 }
-        }
-      },
-      layout:{ padding:{ top:8, right:8, bottom:8, left:8 } }
-    },
-    plugins:[{
-      id:"mst-lines",
-      afterDatasetsDraw(c){
-        const {ctx, scales:{x,y}} = c;
-        ctx.save();
-        ctx.lineWidth = 4;
-        ctx.strokeStyle = "#ffffff";
-        const catWidth = (x.right - x.left) / labelsJP.length;
-        const half = catWidth * 0.30;
-        labelsJP.forEach((lab, idx)=>{
-          const mst = perDay[idx].mst;
-          if (mst == null) return;
-          const yPix = y.getPixelForValue(toDayOffsetMinutes(mst));
-          const xCenter = x.getPixelForValue(lab);
-          ctx.beginPath();
-          ctx.moveTo(xCenter - half, yPix);
-          ctx.lineTo(xCenter + half, yPix);
-          ctx.stroke();
-        });
-        ctx.restore();
-      }
-    }]
-  });
+  updateChart(segments, perDay);
+
+  // 週評価
   const usedTotals = [], usedMSTs=[];
   perDay.forEach(d=>{
     if(d.total>0 && d.mst!=null){ usedTotals.push(d.total); usedMSTs.push(d.mst); }
@@ -271,6 +229,96 @@ function evaluateAll(){
     document.getElementById("starRatings").innerHTML="";
   }
 }
+
+/* ====== グラフ作成・更新（アニメ完全無し＆再生成しない） ====== */
+let chartRef = null;
+let perDayCache = Array.from({length:7},()=>({mst:null}));
+
+function initChart(){
+  const ctx = document.getElementById("sleepChart").getContext("2d");
+
+  // MST白線プラグイン（アニメ無し）
+  const mstPlugin = {
+    id:"mst-lines",
+    afterDatasetsDraw(c){
+      const {ctx, scales:{x,y}} = c;
+      ctx.save();
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = "#ffffff";
+      const catWidth = (x.right - x.left) / labelsJP.length;
+      const half = catWidth * 0.30; // 短め
+      labelsJP.forEach((lab, idx)=>{
+        const mst = perDayCache[idx]?.mst ?? null;
+        if (mst == null) return;
+        const yPix = y.getPixelForValue(toDayOffsetMinutes(mst));
+        const xCenter = x.getPixelForValue(lab);
+        ctx.beginPath();
+        ctx.moveTo(xCenter - half, yPix);
+        ctx.lineTo(xCenter + half, yPix);
+        ctx.stroke();
+      });
+      ctx.restore();
+    }
+  };
+
+  chartRef = new Chart(ctx,{
+    type:"bar",
+    data:{
+      labels: labelsJP,
+      datasets:[{
+        type:"bar",
+        label:"睡眠",
+        data: [], // 初期は空
+        backgroundColor:"#99ddff",
+        borderRadius:6,
+        borderSkipped:false,
+        parsing:{ xAxisKey:"x", yAxisKey:"y" },
+        categoryPercentage:0.45,
+        barPercentage:0.55,
+        maxBarThickness:18
+      }]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      animation:false,             // ← アニメ無効
+      transitions:{ active:{ animation:{ duration:0 } } },
+      plugins:{
+        legend:{ display:false },
+        tooltip:{ callbacks:{ label(ctx){
+          const v = ctx.raw?.y;
+          if(Array.isArray(v)){
+            return `${minToTime(v[0]+FOUR_AM)}〜${minToTime(v[1]+FOUR_AM)}`;
+          }
+          return '';
+        }}}
+      },
+      scales:{
+        x:{ stacked:true, ticks:{ maxRotation:0 } },
+        y:{
+          min:0, max:1440, stacked:true,
+          ticks:{ callback:v=>minToTime(v + FOUR_AM), stepSize:120 }
+        }
+      },
+      layout:{ padding:{ top:8, right:8, bottom:8, left:8 } }
+    },
+    plugins:[mstPlugin]
+  });
+}
+
+function updateChart(segments, perDay){
+  if(!chartRef) initChart();
+
+  // データ更新（伸びアニメなし）
+  chartRef.data.datasets[0].data = segments.map(seg => ({ x: seg.x, y: [seg.y[0], seg.y[1]] }));
+  perDayCache = perDay; // MST描画用キャッシュ更新
+
+  // 空でも軸を残して即時反映
+  chartRef.update('none');
+}
+
+/* ====== 初期化（空の軸を出しておく） ====== */
+updateChart([], perDayCache);
 </script>
 </body>
 </html>
