@@ -283,28 +283,30 @@ function evaluateAll(){
       }
     },
     plugins: [{
-      id: "mst-lines",
-      afterDatasetsDraw(c) {
-        const {ctx, scales:{x,y}} = c;
-        ctx.save();
-        ctx.lineWidth = 4;
-        ctx.strokeStyle = "#ffffff";
-        labelsJP.forEach((lab, idx) => {
-          const p = mstByLabel[idx];
-          if (!p) return;
-          const yPix = y.getPixelForValue(p.y);
-          // 横棒の長さはカテゴリ幅の9割
-          const xCenter = x.getPixelForValue(lab);
-          const w = (x.getPixelForTick(idx+1) - x.getPixelForTick(idx)) * 0.45;
-          ctx.beginPath();
-          ctx.moveTo(xCenter - w, yPix);
-          ctx.lineTo(xCenter + w, yPix);
-          ctx.stroke();
-        });
-        ctx.restore();
-      }
-    }]
-  });
+  id: "mst-lines",
+  afterDatasetsDraw(c) {
+    const {ctx, scales:{x,y}} = c;
+    ctx.save();
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = "#ffffff";
+
+    // ← 幅の計算を安全に（全体幅÷カテゴリ数）
+    const catWidth = (x.right - x.left) / labelsJP.length;
+    const half = catWidth * 0.45;
+
+    labelsJP.forEach((lab, idx) => {
+      const mst = perDay[idx].mst;
+      if (mst == null) return;
+      const yPix = y.getPixelForValue(toDayOffsetMinutes(mst));
+      const xCenter = x.getPixelForValue(lab);
+      ctx.beginPath();
+      ctx.moveTo(xCenter - half, yPix);
+      ctx.lineTo(xCenter + half, yPix);
+      ctx.stroke();
+    });
+    ctx.restore();
+  }
+}]
 
   // 週評価（データが3日以上ある日だけ対象）
   const usedTotals = [], usedMSTs=[];
