@@ -41,11 +41,6 @@
   </div>
 </div>
 
-<!-- 消去ボタンを常に中央に配置 -->
-<div class="center"><button id="clearBtn">消去</button></div>
-
-<div id="daysContainer"></div>
-
 <div class="footer">
   <h3>週の統計とグラフ</h3>
   <button onclick="evaluateAll()">週の評価</button>
@@ -101,6 +96,10 @@ document.getElementById("clearBtn").onclick = () => {
   });
   document.getElementById("weeklyStats").innerText = "";
   document.getElementById("starRatings").innerHTML = "";
+ <!-- 消去ボタンを常に中央に配置 -->
+<div class="center"><button id="clearBtn">消去</button></div>
+
+<div id="daysContainer"></div>
   // グラフだけ空に更新（枠は残す）
   if (chartRef) {
     chartRef.data.datasets[0].data = [];
