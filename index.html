@@ -2,188 +2,92 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>睡眠記録</title>
-  <!-- Chart.js v4 を固定 -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    :root{
-      --bg: #dff6fd;
-      --bg-grad-1: #dff6fd;
-      --bg-grad-2: #cfefff;
-      --card: #f0fbff;
-      --accent: #66ccff;
-      --accent-strong: #19a7ff;
-      --text: #072a38;
-      --muted: #6b8a99;
-      --shadow: 0 8px 24px rgba(0,0,0,.08);
-      --radius: 14px;
+    body { margin: 0; font-family: 'Noto Sans JP', sans-serif; background: #dff6fd; color: #000; }
+    .header, .footer { padding: 1rem; text-align: center; }
+    .header-form { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; margin-top: 1rem; }
+    .header-form label { display: flex; justify-content: center; align-items: center; gap: 0.5rem; }
+    .header-form input[type="time"], .header-form input[type="number"] {
+      padding: 0.1rem; border-radius: 4px; border: 1px solid #aaa; width: 60px; text-align: center;
     }
-    *{ box-sizing: border-box; }
-    body{
-      margin:0; color:var(--text);
-      font-family: 'Noto Sans JP', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      background: linear-gradient(180deg, var(--bg-grad-1), var(--bg-grad-2));
-      min-height:100vh;
-      -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
-    }
-    .wrap{ max-width:1100px; margin:0 auto; padding:16px; }
-    .header, .footer{
-      text-align:center; margin:12px auto;
-      background: var(--card);
-      border-radius: calc(var(--radius) + 2px);
-      box-shadow: var(--shadow);
-      padding: 18px 16px;
-    }
-    .header h2{
-      margin: 6px 0 10px; letter-spacing:.03em;
-      font-weight: 700;
-    }
-    .sub{
-      font-size:.92rem; color:var(--muted); margin: -2px 0 6px;
-    }
-    .header-form{
-      display:flex; flex-wrap:wrap; justify-content:center; gap:10px 14px; margin-top:6px;
-    }
-    .header-form label{
-      display:flex; align-items:center; gap:.5rem; background:#fff;
-      border:1px solid #cfe7f1; border-radius:10px; padding:8px 10px;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.6);
-    }
-    .header-form input[type="time"], .header-form input[type="number"]{
-      padding:.25rem .45rem; border-radius:8px; border:1px solid #9ac9dc;
-      width:90px; text-align:center; background:#fff; color:var(--text);
-      transition: box-shadow .18s ease, border-color .18s ease;
-    }
-    .header-form input:focus{
-      outline:none; border-color: var(--accent);
-      box-shadow: 0 0 0 3px rgba(102,204,255,.25);
-    }
-    .btn{
-      background: var(--accent);
-      color:#003347; border:none; padding:.55rem 1rem;
-      border-radius:12px; font-size:.95rem; font-weight:600;
-      cursor:pointer; transition: transform .06s ease, box-shadow .2s ease, background .2s ease;
-      box-shadow: 0 6px 14px rgba(25,167,255,.25);
-    }
-    .btn:hover{ background: var(--accent-strong); }
-    .btn:active{ transform: translateY(1px); }
-    .center{ display:flex; justify-content:center; margin: 10px 0 16px; }
-    /* 日カード */
-    #daysContainer{
-      display:grid; gap:14px;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      margin: 0 auto 8px;
-    }
-    .day-block{
-      background: var(--card); border-radius: var(--radius);
-      box-shadow: var(--shadow); padding: 14px 14px 10px; text-align:center;
-      transition: transform .12s ease, box-shadow .2s ease;
-    }
-    .day-block:hover{ transform: translateY(-1px); box-shadow: 0 10px 28px rgba(0,0,0,.1); }
-    .day-title{ font-size:1.06rem; margin-bottom:.4rem; color:#0a80c0; font-weight:700; }
-    .table-grid{
-      display:grid; grid-template-columns: 1fr .3fr 1fr .8fr 1fr 1fr;
-      align-items:center; text-align:center; font-size:.93rem; margin-bottom:.25rem; gap:4px;
-    }
-    .input-cell{ display:flex; justify-content:center; }
-    .input-cell input[type="time"]{
-      background:#fff; border:1px solid #cfe7f1; border-radius:10px; padding:6px 8px; min-width:110px;
-      transition: border-color .18s ease, box-shadow .18s ease;
-    }
-    .input-cell input[type="time"]:focus{
-      outline:none; border-color: var(--accent);
-      box-shadow: 0 0 0 3px rgba(102,204,255,.2);
-    }
-    .badge{
-      display:inline-flex; align-items:center; justify-content:center;
-      min-width:44px; padding:2px 8px; border-radius:999px; background:#e8f7ff; color:#0b526e; font-weight:600;
-    }
-    /* グラフ */
-    .chart-card{
-      background: var(--card); border-radius: calc(var(--radius) + 2px);
-      box-shadow: var(--shadow); padding: 14px;
-    }
-    canvas{
-      width:100%; height:auto; display:block; background:#e9faff;
-      border-radius:12px; border: 1px solid #cfe7f1;
-    }
-    .stars{ margin-top:.6rem; text-align:center; }
-    .stars img{ width:60px; margin: 0 6px; vertical-align:middle; filter: drop-shadow(0 2px 2px rgba(0,0,0,.06)); }
-    #suggestionResult div{ margin:.25rem 0; }
-    .footer .btn{ margin: 6px auto 10px; }
-    @media (max-width: 360px){
-      .input-cell input[type="time"]{ min-width:96px; }
-    }
+    .day-block { margin: 1rem auto; background: #f0fbff; padding: 1rem; border-radius: 12px; box-shadow: 0 0 10px rgba(0,0,0,0.1); max-width: 440px; text-align: center; }
+    .day-title { font-size: 1.2rem; margin-bottom: 0.5rem; color: #007acc; }
+    .table-grid { display: grid; grid-template-columns: 1fr 0.3fr 1fr 0.8fr 1fr 1fr; align-items: center; text-align: center; font-size: 0.9rem; margin-bottom: 0.3rem; }
+    .input-cell { display: flex; justify-content: center; }
+    button { background: #66ccff; border: none; padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.9rem; cursor: pointer; margin: 0.5rem auto; display: block; }
+    canvas { max-width: 95%; margin: 1rem auto; display: block; background: #e9faff; }
+    .stars { margin-top: 1rem; text-align: center; }
+    .stars img { width: 60px; margin: 0 5px; }
+    #suggestionResult div { margin: 0.3rem 0; }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <section class="header">
-      <h2>睡眠スケジュール</h2>
-      <div class="sub">16:00 → 翌16:00のスケールで可視化。MSTは白線で表示します。</div>
-      <div class="header-form">
-        <label>就寝予定時刻:<input type="time" id="plannedStart"></label>
-        <label>希望睡眠時間(分):<input type="number" id="desiredDuration" min="0" max="1440" step="1"></label>
-        <label>MST:<input type="time" id="targetMST"></label>
-        <button class="btn" onclick="suggestSleepTime()">提案</button>
-      </div>
-      <div id="suggestionResult"></div>
-    </section>
-
-    <!-- 入力欄 -->
-    <section id="daysContainer"></section>
-    <!-- ↓ 週の睡眠入力欄の“直下”に移動 -->
-    <div class="center"><button class="btn" id="clearBtn">消去</button></div>
-
-    <section class="footer chart-card">
-      <h3 style="margin:8px 0 6px;">週の統計とグラフ</h3>
-      <button class="btn" onclick="evaluateAll()">週の評価</button>
-      <div id="weeklyStats" style="margin:6px 0 8px; color:#09465d; font-weight:600;"></div>
-      <canvas id="mstChart" height="420"></canvas>
-      <div class="stars" id="starRatings"></div>
-    </section>
+<div class="header">
+  <h2>睡眠スケジュール</h2>
+  <div class="header-form">
+    <label>就寝予定時刻:<input type="time" id="plannedStart"></label>
+    <label>希望睡眠時間(分):<input type="number" id="desiredDuration" min="0" max="1440" step="1"></label>
+    <label>MST:<input type="time" id="targetMST"></label>
+    <button onclick="suggestSleepTime()">提案</button>
+    <div id="suggestionResult"></div>
   </div>
-
+</div>
+<div id="daysContainer"></div>
+<div class="footer">
+  <h3>週の統計とグラフ</h3>
+  <button onclick="evaluateAll()">週の評価</button>
+  <div id="weeklyStats"></div>
+  <canvas id="mstChart" height="400"></canvas>
+  <div class="stars" id="starRatings"></div>
+</div>
 <script>
-/* ===== ユーティリティ ===== */
 const weekdays = ["mon","tue","wed","thu","fri","sat","sun"];
-const labelsJP = ["月","火","水","木","金","土","日"];
-const GRAPH_OFFSET = 16 * 60; // 16:00 → 翌16:00
-let chartRef = null;
-
-function focusNext(current, nextId) { if (current.value) document.getElementById(nextId).focus(); }
-function timeToMin(t) { if (!t) return null; const [h, m] = t.split(":").map(Number); return h * 60 + m; }
-function minToTime(min) { min = (min + 1440) % 1440; const h = String(Math.floor(min/60)).padStart(2,"0"); const m = String(min%60).padStart(2,"0"); return `${h}:${m}`; }
-function toGraphCoord(min){ if(min==null) return null; return ((min - GRAPH_OFFSET) % 1440 + 1440) % 1440; }
-
-/* ===== 入力カードの生成 ===== */
+const labels = ["月","火","水","木","金","土","日"];
 const container = document.getElementById("daysContainer");
+
+function focusNext(current, nextId) {
+  if (current.value) document.getElementById(nextId).focus();
+}
+function timeToMin(t) {
+  if (!t) return null;
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + m;
+}
+function minToTime(min) {
+  min = (min + 1440) % 1440;
+  const h = Math.floor(min / 60).toString().padStart(2, "0");
+  const m = Math.floor(min % 60).toString().padStart(2, "0");
+  return `${h}:${m}`;
+}
+
 weekdays.forEach((day, i) => {
   const block = document.createElement("div");
   block.className = "day-block";
-  block.innerHTML = `
-    <div class='day-title'>${labelsJP[i]}曜日</div>
+  block.innerHTML = `<div class='day-title'>${labels[i]}曜日</div>
     <div class='table-grid'><div>就寝</div><div></div><div>起床</div><div>点数</div><div>合計</div><div>MST</div></div>
     <div class='table-grid'>
       <div class='input-cell'><input type='time' id='${day}_s1' oninput="focusNext(this, '${day}_w1'); evaluateAll();"></div>
       <div>〜</div>
       <div class='input-cell'><input type='time' id='${day}_w1' oninput="evaluateAll();"></div>
-      <div id='${day}_score1' class='badge'>--点</div><div></div><div></div>
+      <div id='${day}_score1'>--点</div><div></div><div></div>
     </div>
     <div class='table-grid'><div></div><div></div><div></div><div></div>
-      <div id='${day}_total' class='badge'>--h--m</div><div id='${day}_mst' class='badge'>--:--</div></div>
+      <div id='${day}_total'>--h--m</div><div id='${day}_mst'>--:--</div></div>
     <div class='table-grid'>
       <div class='input-cell'><input type='time' id='${day}_s2' oninput="focusNext(this, '${day}_w2'); evaluateAll();"></div>
       <div>〜</div>
       <div class='input-cell'><input type='time' id='${day}_w2' oninput="evaluateAll();"></div>
-      <div id='${day}_score2' class='badge'>--点</div><div></div><div></div>
+      <div id='${day}_score2'>--点</div><div></div><div></div>
     </div>`;
   container.appendChild(block);
 });
 
-/* ===== 消去ボタン ===== */
-document.getElementById("clearBtn").onclick = () => {
+const clearBtn = document.createElement("button");
+clearBtn.textContent = "消去";
+clearBtn.onclick = () => {
   weekdays.forEach(day => {
     ["s1","w1","s2","w2"].forEach(t => document.getElementById(`${day}_${t}`).value = "");
     document.getElementById(`${day}_total`).innerText = "--h--m";
@@ -193,179 +97,110 @@ document.getElementById("clearBtn").onclick = () => {
   });
   document.getElementById("weeklyStats").innerText = "";
   document.getElementById("starRatings").innerHTML = "";
-  // グラフだけ空に更新（枠は残す）
-  if (chartRef) {
-    chartRef.data.datasets[0].data = [];
-    chartRef.data.datasets[1].data = [];
-    chartRef.$mstLines = [];
-    chartRef.update();
-  }
+  Chart.getChart("mstChart")?.destroy();
 };
+container.appendChild(clearBtn);
 
-/* ===== 就寝提案 ===== */
 function suggestSleepTime() {
   const start = timeToMin(document.getElementById("plannedStart").value);
   const duration = parseInt(document.getElementById("desiredDuration").value);
   const targetMST = timeToMin(document.getElementById("targetMST").value);
   const resultDiv = document.getElementById("suggestionResult");
   resultDiv.innerHTML = "";
-  if (start == null || isNaN(duration) || targetMST == null) { resultDiv.innerText = "入力が不完全です。"; return; }
+  if (start == null || isNaN(duration) || targetMST == null) {
+    resultDiv.innerText = "入力が不完全です。"; return;
+  }
 
   let candidates = [];
   for (let i = 0; i <= 180; i += 5) {
     let s = (start + i) % 1440;
     let maxDur = Math.min(duration, 1440 - i);
     for (let d = maxDur; d >= 30; d -= 5) {
+      let e = (s + d) % 1440;
       let mst = (s + d / 2) % 1440;
       let diff = Math.min(Math.abs(mst - targetMST), 1440 - Math.abs(mst - targetMST));
-      if (diff <= 30) { candidates.push({s, d, mst, offset: i}); break; }
+      if (diff <= 30) {
+        candidates.push({s, e, d, mst, diff, offset: i});
+        break;
+      }
     }
   }
-  if (!candidates.length) { resultDiv.innerText = "適した時間帯が見つかりません。"; return; }
+
+  if (candidates.length === 0) {
+    resultDiv.innerText = "適した時間帯が見つかりません。";
+    return;
+  }
+
   candidates.sort((a, b) => a.offset - b.offset || b.d - a.d);
-  candidates.slice(0, 3).forEach(c => {
-    const e = (c.s + c.d) % 1440;
+  const top3 = candidates.slice(0, 3);
+  top3.forEach(c => {
     const div = document.createElement("div");
-    div.innerText = `${minToTime(c.s)}〜${minToTime(e)} (${c.d}分 MST:${minToTime(c.mst)})`;
+    div.innerText = `${minToTime(c.s)}〜${minToTime(c.e)} (${c.d}分 MST:${minToTime(c.mst)})`;
     resultDiv.appendChild(div);
   });
 }
 
-/* ===== グラフ（画像風） ===== */
-// MST白線プラグイン
-const mstPlugin = {
-  id:'mstLines',
-  afterDatasetsDraw(chart){
-    const {ctx, chartArea, scales:{x,y}} = chart;
-    if(!x || !y || !chart.$mstLines?.length || !chartArea) return;
-    const colW = Math.max(12, chartArea.width / Math.max(1, labelsJP.length));
-    const half = colW * 0.35;
-    ctx.save(); ctx.lineWidth = 4; ctx.strokeStyle = '#ffffff';
-    chart.$mstLines.forEach(({dayIndex, coord})=>{
-      const xC = x.getPixelForValue(labelsJP[dayIndex]);
-      const yP = y.getPixelForValue(coord);
-      if(Number.isFinite(xC) && Number.isFinite(yP)){
-        ctx.beginPath(); ctx.moveTo(xC - half, yP); ctx.lineTo(xC + half, yP); ctx.stroke();
-      }
-    });
-    ctx.restore();
-  }
-};
-
-function buildOrUpdateChart(segPrimary, segSecondary, mstLines){
-  const cfg = {
-    type:'bar',
-    data:{
-      labels: labelsJP, // 常に週枠を表示
-      datasets:[
-        {label:'睡眠（MST側）', data:segPrimary, parsing:{xAxisKey:'x', yAxisKey:'y'},
-         borderRadius:8, borderSkipped:false, backgroundColor:'#66ccff', barPercentage:.56, categoryPercentage:.72},
-        {label:'睡眠（MSTなし側）', data:segSecondary, parsing:{xAxisKey:'x', yAxisKey:'y'},
-         borderRadius:8, borderSkipped:false, backgroundColor:'rgba(102,204,255,0.35)', barPercentage:.56, categoryPercentage:.72}
-      ]
-    },
-    options:{
-      maintainAspectRatio:false,
-      plugins:{
-        legend:{display:false},
-        tooltip:{callbacks:{label:(ctx)=>{
-          const rng = (ctx.raw && ctx.raw.y) ? ctx.raw.y : [0,0];
-          const s = minToTime((rng[0]+GRAPH_OFFSET)%1440);
-          const e = minToTime((rng[1]+GRAPH_OFFSET)%1440);
-          const d = ((rng[1]-rng[0]+1440)%1440);
-          return `${s}〜${e}（${Math.floor(d/60)}h${d%60}m）`;
-        }}}
-      },
-      scales:{
-        x:{grid:{display:false}},
-        y:{min:0, max:1440, ticks:{stepSize:120, callback:v=>minToTime((v+GRAPH_OFFSET)%1440)}}
-      }
-    },
-    plugins:[mstPlugin]
-  };
-
-  const ctx = document.getElementById("mstChart").getContext('2d');
-  if(!chartRef){ chartRef = new Chart(ctx, cfg); }
-  else{
-    chartRef.data.datasets[0].data = segPrimary;
-    chartRef.data.datasets[1].data = segSecondary;
-    chartRef.update();
-  }
-  chartRef.$mstLines = mstLines; // 白線データ
-}
-
-/* ===== 再計算＆描画 ===== */
 function evaluateAll() {
-  let count = 0, totals = [], msts = [];
-  const segPrimary = [];      // MSTを含む帯（濃）
-  const segSecondary = [];    // MSTを含まない帯（薄）
-  const mstLines = [];        // {dayIndex, coord}
-
+  let count = 0, totals = [], msts = [], labelsUsed = [];
   weekdays.forEach((day, i) => {
     const s1 = timeToMin(document.getElementById(`${day}_s1`).value);
     const w1 = timeToMin(document.getElementById(`${day}_w1`).value);
     const s2 = timeToMin(document.getElementById(`${day}_s2`).value);
     const w2 = timeToMin(document.getElementById(`${day}_w2`).value);
-
-    const d1 = (s1!=null && w1!=null) ? (w1 - s1 + 1440) % 1440 : 0;
-    const d2 = (s2!=null && w2!=null) ? (w2 - s2 + 1440) % 1440 : 0;
+    const d1 = s1 != null && w1 != null ? (w1 - s1 + 1440) % 1440 : 0;
+    const d2 = s2 != null && w2 != null ? (w2 - s2 + 1440) % 1440 : 0;
     const total = d1 + d2;
-
-    // スコア表示
+    const mst = d1 >= d2 && d1 > 0 ? (s1 + d1 / 2) % 1440 : d2 > 0 ? (s2 + d2 / 2) % 1440 : null;
     const score1 = d1 > 0 ? Math.min(100, Math.round(d1 / 5.1)) : 0;
     const score2 = d2 > 0 ? Math.min(100 - score1, Math.round(d2 / 5.1)) : 0;
     document.getElementById(`${day}_total`).innerText = `${Math.floor(total/60)}h${total%60}m`;
+    document.getElementById(`${day}_mst`).innerText = mst != null ? minToTime(mst) : "--:--";
     document.getElementById(`${day}_score1`).innerText = `${score1}点`;
     document.getElementById(`${day}_score2`).innerText = `${score2}点`;
-
-    // 長い方のMST（もう片方は薄色）
-    const useFirst = (d1 >= d2);
-    const use = useFirst ? {s:s1, d:d1} : {s:s2, d:d2};
-    const mst = (use.d>0 && use.s!=null) ? (use.s + use.d/2) % 1440 : null;
-    document.getElementById(`${day}_mst`).innerText = mst!=null ? minToTime(mst) : "--:--";
-
     if (total > 0 && mst != null) {
-      count++; totals.push(total); msts.push(mst);
-      mstLines.push({ dayIndex:i, coord: toGraphCoord(mst) });
+      count++;
+      totals.push(total);
+      msts.push(mst);
+      labelsUsed.push(labels[i]);
     }
-
-    // 帯作成（16:00境界で分割 → 翌日に跨がせる）
-    function pushSeg(startMin, durMin, primary){
-      if(startMin==null || durMin<=0) return;
-      const endMin = (startMin + durMin) % 1440;
-      let sC = toGraphCoord(startMin), eC = toGraphCoord(endMin);
-      const push = (xIndex, y0, y1, p)=>{ const obj = { x: labelsJP[xIndex], y:[y0,y1] }; (p?segPrimary:segSecondary).push(obj); };
-      if(eC > sC){ push(i, sC, eC, primary); }
-      else{        // 境界跨ぎ
-        push(i, sC, 1440, primary);
-        push((i+1)%7, 0, eC, primary);
-      }
-    }
-    pushSeg(s1, d1, useFirst);      // MST側＝濃い
-    pushSeg(s2, d2, !useFirst);     // MSTなし側＝薄い
   });
 
-  // グラフ更新
-  buildOrUpdateChart(segPrimary, segSecondary, mstLines);
+  const ctx = document.getElementById("mstChart").getContext('2d');
+  Chart.getChart("mstChart")?.destroy();
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labelsUsed,
+      datasets: [{
+        label: 'MST',
+        data: msts,
+        backgroundColor:'#99ddff'
+      }]
+    },
+    options: {
+      scales: {
+        y: {
+          min: 0, max: 1440,
+          ticks: { callback: v => minToTime(v) }
+        }
+      }
+    }
+  });
 
-  // 週評価（3日以上で表示）
-  const starBox = document.getElementById("starRatings");
-  const statBox = document.getElementById("weeklyStats");
   if (count >= 3) {
     const diffT = Math.max(...totals) - Math.min(...totals);
     const diffM = Math.max(...msts) - Math.min(...msts);
     const starT = diffT <= 120 ? 3 : diffT <= 180 ? 2 : 1;
-    const starM = diffM <=  60 ? 3 : diffM <=  90 ? 2 : 1;
-    statBox.innerText = `睡眠時間差:${(diffT/60).toFixed(1)}h　MST差:${(diffM/60).toFixed(1)}h`;
-    starBox.innerHTML = `合計:<img src="images/star${starT}.png" alt="${starT}">　MST:<img src="images/star${starM}.png" alt="${starM}">`;
+    const starM = diffM <= 60 ? 3 : diffM <= 90 ? 2 : 1;
+    document.getElementById("weeklyStats").innerText =
+      `睡眠時間差:${(diffT/60).toFixed(1)}h MST差:${(diffM/60).toFixed(1)}h`;
+    document.getElementById("starRatings").innerHTML =
+      `合計:<img src="images/star${starT}.png"> MST:<img src="images/star${starM}.png">`;
   } else {
-    statBox.innerText = "";
-    starBox.innerHTML = "";
+    document.getElementById("weeklyStats").innerText = "";
+    document.getElementById("starRatings").innerHTML = "";
   }
 }
-
-// 初期描画
-evaluateAll();
 </script>
 </body>
 </html>
