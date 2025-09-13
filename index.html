@@ -108,12 +108,14 @@ function suggestSleepTime() {
   const resultDiv = document.getElementById("suggestionResult");
   resultDiv.innerHTML = "";
   if (start == null || isNaN(duration) || targetMST == null) {
-    resultDiv.innerText = "入力が不完全です。"; return;
+    resultDiv.innerText = "入力が不完全です。";
+    return;
   }
 
   let candidates = [];
   for (let i = 0; i <= 180; i += 5) {
     let s = (start + i) % 1440;
+    // 修正箇所: maxDurを常にdurationとする
     let maxDur = duration;
     for (let d = maxDur; d >= 30; d -= 5) {
       let e = (s + d) % 1440;
